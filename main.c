@@ -19,13 +19,13 @@
 
 */
 
-typedef struct _SudokuGrid
+typedef struct SudokuGrid
 {
-    int grid_size;  // Size of the Sudoku grid, measured in the number of horizontal cells.
-    int box_size;   // Size of one box in the Sudoku grid, measured in the number of horizontal cells.
+    int grid_size; // Size of the Sudoku grid, measured in the number of horizontal cells.
+    int box_size; // Size of one box in the Sudoku grid, measured in the number of horizontal cells.
 
     int digits_len; // Length of the <digits> array. Is equal to 'pow(grid_size, 2)'.
-    int digits[];   // Digits in the cells of the grid.
+    int digits[]; // Digits in the cells of the grid.
 } SudokuGrid;
 
 // Utility functions (RNG):
@@ -33,13 +33,14 @@ void random_initialize()
 {
     srand(time(NULL));
 }
+
 int random_interval(int min_value, int max_value)
 {
     return ((rand() % (max_value - min_value + 1)) + min_value);
 }
 
 // Utility functions (Printing):
-void grid_print_border_horizontal(SudokuGrid *grid)
+void grid_print_border_horizontal(SudokuGrid* grid)
 {
     for (int ix = 0; ix < grid->grid_size; ix++)
     {
@@ -53,7 +54,8 @@ void grid_print_border_horizontal(SudokuGrid *grid)
             printf("\n");
     }
 }
-void grid_print(SudokuGrid *grid)
+
+void grid_print(SudokuGrid* grid)
 {
     for (int ix = 0; ix < grid->digits_len; ix++)
     {
@@ -74,11 +76,11 @@ void grid_print(SudokuGrid *grid)
 }
 
 // Functions for grid creation/deletion:
-SudokuGrid *grid_create(int grid_size)
+SudokuGrid* grid_create(int grid_size)
 {
     int digits_len = (int)pow(grid_size, 2);
 
-    SudokuGrid *sudoku = (SudokuGrid *)malloc(sizeof(SudokuGrid) + digits_len * sizeof(int));
+    SudokuGrid* sudoku = (SudokuGrid*)malloc(sizeof(SudokuGrid) + digits_len * sizeof(int));
     sudoku->grid_size = grid_size;
     sudoku->box_size = (int)sqrt(grid_size);
 
@@ -87,22 +89,24 @@ SudokuGrid *grid_create(int grid_size)
 
     return sudoku;
 }
-SudokuGrid *grid_copy(SudokuGrid *grid)
+
+SudokuGrid* grid_copy(SudokuGrid* grid)
 {
-    SudokuGrid *copy = grid_create(grid->grid_size);
+    SudokuGrid* copy = grid_create(grid->grid_size);
 
     for (int ix = 0; ix < grid->digits_len; ix++)
         copy->digits[ix] = grid->digits[ix];
 
     return copy;
 }
-void grid_delete(SudokuGrid *grid)
+
+void grid_delete(SudokuGrid* grid)
 {
     free(grid);
 }
 
 // Functions for setting a value in a grid (Unchecked):
-void grid_set_value(SudokuGrid *grid, int row_ix, int col_ix, int value)
+void grid_set_value(SudokuGrid* grid, int row_ix, int col_ix, int value)
 {
     if ((row_ix >= grid->grid_size) || (row_ix < 0) ||
         (col_ix >= grid->grid_size) || (col_ix < 0) ||
@@ -121,7 +125,7 @@ int main()
     random_initialize();
 
     int grid_size = GRID_SIZE;
-    SudokuGrid *test = grid_create(grid_size);
+    SudokuGrid* test = grid_create(grid_size);
     grid_set_value(test, 0, 0, 1);
     grid_set_value(test, 0, 1, 2);
     grid_set_value(test, 0, 2, 3);

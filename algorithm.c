@@ -9,6 +9,9 @@
 typedef struct Node Node;
 typedef struct HeaderNode HeaderNode;
 
+// [TEMP] Temporary code, used exclusively for testing. This code will be removed later.
+static int test = 0;
+
 struct Node
 {
     int sudoku_row, sudoku_column, sudoku_value;
@@ -89,23 +92,23 @@ HeaderNode* dlx_get_column_shortest(HeaderNode* header_ptr)
     return smallest;
 }
 
-HeaderNode* dlx_get_column(HeaderNode* header_ptr, int column)
+HeaderNode* dlx_get_column(HeaderNode* header_ptr, int column_num)
 {
-    if (column < 1 || column > header_ptr->total_size)
+    if (column_num < 1 || column_num > header_ptr->total_size)
     {
         fprintf(stderr, "ERROR: Invalid column number!\n");
         exit(EXIT_FAILURE);
     }
 
     HeaderNode* current = (HeaderNode*)header_ptr->node.right;
-    while (current != header_ptr)
+    while (current != header_ptr && current->num <= column_num)
     {
-        if (current->num == column)
+        if (current->num == column_num)
             return current;
         current = (HeaderNode*)current->node.right;
     }
 
-    fprintf(stderr, "ERROR: Column header #%d not found!\n", column);
+    fprintf(stderr, "ERROR: Column header #%d not found!\n", column_num);
     return NULL;
 }
 
@@ -119,18 +122,18 @@ Node* dlx_get_column_last_node(HeaderNode* column_ptr)
 }
 
 // Functions for appending nodes/rows (!):
-Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node, int sudoku_row, int sudoku_column,
+Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int sudoku_row, int sudoku_column,
                       int sudoku_value)
 {
-    if (column_last_node == NULL || column_last_node->column_node != column_ptr)
-        column_last_node = dlx_get_column_last_node(column_ptr);
+    if (column_last_node_ptr == NULL || column_last_node_ptr->column_node != column_ptr)
+        column_last_node_ptr = dlx_get_column_last_node(column_ptr);
 
     Node* new_node = dlx_initiate_node(column_ptr, sudoku_row, sudoku_column, sudoku_value);
 
-    dlx_connect_nodes_vertical(new_node, column_last_node == (Node*)column_ptr
+    dlx_connect_nodes_vertical(new_node, column_last_node_ptr == (Node*)column_ptr
                                              ? (Node*)column_ptr
-                                             : (Node*)column_last_node->column_node);
-    dlx_connect_nodes_vertical(column_last_node, new_node);
+                                             : (Node*)column_last_node_ptr->column_node);
+    dlx_connect_nodes_vertical(column_last_node_ptr, new_node);
     new_node->column_node->total_size++;
     new_node->column_node->current_size++;
 
@@ -162,7 +165,7 @@ void dlx_append_row(HeaderNode* header_ptr, int sudoku_row, int sudoku_column, i
 }
 
 // Functions for DLX Matrix initialization/termination:
-HeaderNode* dlx_initialize_matrix_header(int column_num)
+HeaderNode* dlx_initialize_matrix_header_full(int column_num)
 {
     if (column_num < 0)
     {
@@ -195,32 +198,32 @@ HeaderNode* dlx_initialize_matrix_header(int column_num)
     return header_ptr;
 }
 
-HeaderNode* dlx_initialize_matrix_full(int sudoku_size)
-{
-    if (sudoku_size < 0)
-    {
-        fprintf(stderr, "ERROR: Sudoku size must be non-negative!\n");
-        exit(EXIT_FAILURE);
-    }
+// HeaderNode* dlx_initialize_sudoku_matrix_full(int sudoku_size)
+// {
+//     if (sudoku_size < 0)
+//     {
+//         fprintf(stderr, "ERROR: Sudoku size must be non-negative!\n");
+//         exit(EXIT_FAILURE);
+//     }
+//
+//     int sudoku_cells = (int)pow(sudoku_size, 2);
+//     int matrix_columns = 4 * sudoku_cells;
+//     int matrix_rows = sudoku_size * sudoku_cells;
+//
+//     HeaderNode* header = dlx_initialize_matrix_header_full(matrix_columns);
+//     for (int matrix_row = 1; matrix_row <= matrix_rows; matrix_row++)
+//     {
+//         int sudoku_row = ((matrix_row - 1) / sudoku_cells) + 1;
+//         int sudoku_column = (((matrix_row - 1) / sudoku_size) % sudoku_size) + 1;
+//         int sudoku_value = ((matrix_row - 1) % (sudoku_size + 1)) + 1;
+//
+//         dlx_append_row(header, sudoku_row, sudoku_column, sudoku_value);
+//     }
+//
+//     return header;
+// }
 
-    int sudoku_cells = (int)pow(sudoku_size, 2);
-    int matrix_columns = 4 * sudoku_cells;
-    int matrix_rows = sudoku_size * sudoku_cells;
-
-    HeaderNode* header = dlx_initialize_matrix_header(matrix_columns);
-    for (int matrix_row = 1; matrix_row <= matrix_rows; matrix_row++)
-    {
-        int sudoku_row = ((matrix_row - 1) / sudoku_cells) + 1;
-        int sudoku_column = (((matrix_row - 1) / sudoku_size) % sudoku_size) + 1;
-        int sudoku_value = ((matrix_row - 1) % (sudoku_size + 1)) + 1;
-
-        dlx_append_row(header, sudoku_row, sudoku_column, sudoku_value);
-    }
-
-    return header;
-}
-
-HeaderNode* dlx_initialize_matrix_compact(int sudoku_size)
+HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size)
 {
     if (sudoku_size < 0)
     {
@@ -233,7 +236,7 @@ HeaderNode* dlx_initialize_matrix_compact(int sudoku_size)
     int matrix_columns = 4 * sudoku_cells;
     int matrix_rows = sudoku_size * sudoku_cells;
 
-    HeaderNode* header = dlx_initialize_matrix_header(matrix_columns);
+    HeaderNode* header = dlx_initialize_matrix_header_full(matrix_columns);
     for (int matrix_row = 1; matrix_row <= matrix_rows; matrix_row++)
     {
         int sudoku_row = (matrix_row - 1) / sudoku_cells + 1;
@@ -248,9 +251,9 @@ HeaderNode* dlx_initialize_matrix_compact(int sudoku_size)
         int block_constraint_column = (sudoku_block) * sudoku_size + sudoku_value + (3 * sudoku_cells);
 
         // Uncomment for debugging purposes:
-        // printf("[R: %d, C: %d, V: %d, B: %d -> C1: %3d, C2: %3d, C3: %3d, C4: %3d]\n",
-        //        sudoku_row, sudoku_column, sudoku_value, sudoku_block,
-        //        cell_constraint_column, row_constraint_column, column_constraint_column, block_constraint_column);
+        //printf("[R: %d, C: %d, V: %d, B: %d -> C1: %3d, C2: %3d, C3: %3d, C4: %3d]\n",
+        //       sudoku_row, sudoku_column, sudoku_value, sudoku_block,
+        //       cell_constraint_column, row_constraint_column, column_constraint_column, block_constraint_column);
 
         HeaderNode* cell_constraint_column_ptr = dlx_get_column(header, cell_constraint_column);
         HeaderNode* row_constraint_column_ptr = dlx_get_column(header, row_constraint_column);
@@ -294,19 +297,33 @@ void dlx_terminate_matrix(HeaderNode* header_ptr)
     free(header_ptr);
 }
 
+// Functions for checking the node's coverage status:
+bool dlx_is_node_covered(Node* node_ptr)
+{
+    return !(node_ptr->up->down == node_ptr &&
+        node_ptr->down->up == node_ptr);
+}
+
+bool dlx_is_column_covered(HeaderNode* column_ptr)
+{
+    return !(column_ptr->node.left->right == &(column_ptr->node) &&
+        column_ptr->node.right->left == &(column_ptr->node));
+}
+
 
 // Functions for un-/covering nodes:
 void dlx_uncover_node(Node* node_ptr)
 {
-    node_ptr->up->down = node_ptr;
-    node_ptr->down->up = node_ptr;
+    if (!dlx_is_node_covered(node_ptr)) return;
+    dlx_connect_nodes_vertical(node_ptr->up, node_ptr);
+    dlx_connect_nodes_vertical(node_ptr, node_ptr->down);
     node_ptr->column_node->current_size++;
 }
 
 void dlx_cover_node(Node* node_ptr)
 {
-    node_ptr->up->down = node_ptr->down;
-    node_ptr->down->up = node_ptr->up;
+    if (dlx_is_node_covered(node_ptr)) return;
+    dlx_connect_nodes_vertical(node_ptr->up, node_ptr->down);
     node_ptr->column_node->current_size--;
 }
 
@@ -314,15 +331,16 @@ void dlx_cover_node(Node* node_ptr)
 // Functions for un-/covering column headers:
 void dlx_uncover_column_header(HeaderNode* column_ptr)
 {
-    column_ptr->node.left->right = &(column_ptr->node);
-    column_ptr->node.right->left = &(column_ptr->node);
+    if (!dlx_is_column_covered(column_ptr)) return;
+    dlx_connect_nodes_horizontal(column_ptr->node.left, &(column_ptr->node));
+    dlx_connect_nodes_horizontal(&(column_ptr->node), column_ptr->node.right);
     column_ptr->node.column_node->current_size++;
 }
 
 void dlx_cover_column_header(HeaderNode* column_ptr)
 {
-    column_ptr->node.left->right = column_ptr->node.right;
-    column_ptr->node.right->left = column_ptr->node.left;
+    if (dlx_is_column_covered(column_ptr)) return;
+    dlx_connect_nodes_horizontal(column_ptr->node.left, column_ptr->node.right);
     column_ptr->node.column_node->current_size--;
 }
 
@@ -330,45 +348,37 @@ void dlx_cover_column_header(HeaderNode* column_ptr)
 // Functions for un-/covering all nodes in a node's row, except the node itself:
 void dlx_uncover_row(Node* node_ptr)
 {
-    Node* current = node_ptr->right;
-    while (current != node_ptr)
-    {
+    for (Node* current = node_ptr->right; current != node_ptr; current = current->right)
         dlx_uncover_node(current);
-        current = current->right;
-    }
 }
 
 void dlx_cover_row(Node* node_ptr)
 {
-    Node* current = node_ptr->right;
-    while (current != node_ptr)
-    {
+    for (Node* current = node_ptr->right; current != node_ptr; current = current->right)
         dlx_cover_node(current);
-        current = current->right;
-    }
 }
 
 
 // Functions for un-/covering all rows in the node's column and its column header:
 void dlx_uncover_column(Node* node_ptr)
 {
-    dlx_uncover_column_header(node_ptr->column_node);
-    Node* current = node_ptr->down;
-    while (current != node_ptr)
+    HeaderNode* column_header_ptr = node_ptr->column_node;
+    dlx_uncover_column_header(column_header_ptr);
+    for (Node* current = node_ptr->down; current != node_ptr; current = current->down)
     {
+        if (current == &(column_header_ptr->node)) continue;
         dlx_uncover_row(current);
-        current = current->down;
     }
 }
 
 void dlx_cover_column(Node* node_ptr)
 {
+    HeaderNode* column_header_ptr = node_ptr->column_node;
     dlx_cover_column_header(node_ptr->column_node);
-    Node* current = node_ptr->down;
-    while (current != node_ptr)
+    for (Node* current = node_ptr->down; current != node_ptr; current = current->down)
     {
+        if (current == &(column_header_ptr->node)) continue;
         dlx_cover_row(current);
-        current = current->down;
     }
 }
 
@@ -376,23 +386,15 @@ void dlx_cover_column(Node* node_ptr)
 void dlx_include_row(Node* node_ptr)
 {
     dlx_cover_column_header(node_ptr->column_node);
-    Node* current = node_ptr->right;
-    while (current != node_ptr)
-    {
+    for (Node* current = node_ptr->right; current != node_ptr; current = current->right)
         dlx_cover_column(current);
-        current = current->right;
-    }
 }
 
 void dlx_exclude_row(Node* node_ptr)
 {
     dlx_uncover_column_header(node_ptr->column_node);
-    Node* current = node_ptr->right;
-    while (current != node_ptr)
-    {
+    for (Node* current = node_ptr->right; current != node_ptr; current = current->right)
         dlx_uncover_column(current);
-        current = current->right;
-    }
 }
 
 // Utility functions:
@@ -426,14 +428,116 @@ void dlx_print_sizes(HeaderNode* header_ptr)
     printf("\n");
 }
 
+// Sudoku functions:
+Node* dlx_set_constraint(HeaderNode* header_ptr, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value)
+{
+    int column_num = (sudoku_row - 1) * sudoku_size + sudoku_column;
+    HeaderNode* column_ptr = dlx_get_column(header_ptr, column_num);
+    if (column_ptr == NULL)
+    {
+        fprintf(stderr, "Constraint not set! (column not found)\n");
+        return NULL;
+    }
+
+    for (Node* node_ptr = column_ptr->node.down; node_ptr != &(column_ptr->node); node_ptr = node_ptr->down)
+    {
+        if (node_ptr->sudoku_row == sudoku_row && node_ptr->sudoku_column == sudoku_column &&
+            node_ptr->sudoku_value == sudoku_value)
+        {
+            dlx_include_row(node_ptr);
+            printf("Constraint set!\n");
+            return node_ptr;
+        }
+    }
+
+    fprintf(stderr, "Constraint not set! (node not found)\n");
+    return NULL;
+}
+
+bool dlx_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
+{
+    HeaderNode* selected_column_ptr = dlx_get_column_shortest(header_ptr);
+    if (selected_column_ptr == NULL)
+    {
+        // TODO: implement proper result handling.
+        printf("[SUCCS] #%d Solution found!\n\n\n", ++test);
+        test = 0;
+        return true;
+    }
+
+    for (Node* selected_node_ptr = selected_column_ptr->node.down;
+         selected_node_ptr != &(selected_column_ptr->node);
+         selected_node_ptr = selected_node_ptr->down)
+    {
+        dlx_include_row(selected_node_ptr);
+        if (dlx_solve(header_ptr, sudoku_grid, sudoku_size))
+        {
+            int selected_node_row_index = selected_node_ptr->sudoku_row - 1;
+            int selected_node_column_index = selected_node_ptr->sudoku_column - 1;
+            int selected_node_value = selected_node_ptr->sudoku_value;
+
+            int digits_index = selected_node_row_index * sudoku_size + selected_node_column_index;
+            sudoku_grid[digits_index] = selected_node_value;
+
+            // Optional if the original, unmodified version of the matrix is required:
+            dlx_exclude_row(selected_node_ptr);
+
+            return true;
+        }
+
+        dlx_exclude_row(selected_node_ptr);
+    }
+    printf("[FAILD] #%d No solution found!\n", ++test);
+    return false;
+}
+
+// [TEMP] Temporary code, used exclusively for testing. This code will be removed later.
+void grid_print_border_horizontal(int sudoku_size)
+{
+    for (int ix = 0; ix < sudoku_size; ix++)
+    {
+        bool add_border_vertical = ((ix + 1) % (int)sqrt(sudoku_size) == 0);
+        bool end_row = ((ix + 1) % sudoku_size == 0);
+        printf("-%s", (end_row) ? "" : "-");
+
+        if (add_border_vertical && !end_row)
+            printf("+-");
+        if (end_row)
+            printf("\n");
+    }
+}
+
+void grid_print(int* sudoku_grid, int sudoku_size)
+{
+    for (int ix = 0; ix < (int)pow(sudoku_size, 2); ix++)
+    {
+        bool add_border_vertical = ((ix + 1) % (int)sqrt(sudoku_size) == 0);
+        bool add_border_horizontal = ((ix + 1) % (sudoku_size * (int)sqrt(sudoku_size)) == 0);
+        bool end_row = ((ix + 1) % sudoku_size == 0);
+        bool last_row = end_row && (ix == (int)pow(sudoku_size, 2) - 1);
+
+        printf("%d%s", sudoku_grid[ix], (end_row) ? "" : " ");
+
+        if (add_border_vertical && !end_row)
+            printf("| ");
+        if (end_row)
+            printf("\n");
+        if (add_border_horizontal && !last_row)
+            grid_print_border_horizontal(sudoku_size);
+    }
+}
+
 int main()
 {
-    HeaderNode* header_ptr = dlx_initialize_matrix_compact(36);
+    int sudoku_size = 9;
+    int* sudoku_grid = (int*)calloc((int)pow(sudoku_size, 2), sizeof(int));
+    HeaderNode* header_ptr = dlx_initialize_sudoku_matrix_compact(sudoku_size);
 
-    // Uncomment for debugging purposes:
-    Node* node = dlx_get_node(header_ptr, 1, 1);
-    dlx_include_row(node);
-    dlx_print_sizes(header_ptr);
+    dlx_set_constraint(header_ptr, sudoku_size, 3, 1, 5);
+
+    dlx_solve(header_ptr, sudoku_grid, sudoku_size);
+
+    grid_print(sudoku_grid, sudoku_size);
 
     dlx_terminate_matrix(header_ptr);
     return 0;
