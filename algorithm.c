@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/**
+ * It is suggested to use the Sudoku sizes 4 and 9 to ensure the correct format of the printed output when testing.
+ */
+
 typedef struct Node Node;
 typedef struct HeaderNode HeaderNode;
 
@@ -89,7 +93,7 @@ Node* dlx_get_node(HeaderNode* header_ptr, int matrix_row_index, int matrix_colu
 
     if (matrix_row_index < 0 || matrix_column_index < 0 || matrix_column_index > header_ptr->total_size)
     {
-        fprintf(stderr, "ERROR: Invalid row or column number!\n");
+        fprintf(stderr, "[ERR msg] Invalid row and/or column index!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -200,7 +204,7 @@ HeaderNode* dlx_get_column(HeaderNode* header_ptr, int matrix_column_index)
 {
     if (matrix_column_index < 1 || matrix_column_index > header_ptr->total_size)
     {
-        fprintf(stderr, "ERROR: Invalid column number!\n");
+        fprintf(stderr, "[ERR msg] Invalid column index!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -212,7 +216,7 @@ HeaderNode* dlx_get_column(HeaderNode* header_ptr, int matrix_column_index)
         current = (HeaderNode*)current->node.right;
     }
 
-    fprintf(stderr, "ERROR: Column header #%d not found!\n", matrix_column_index);
+    fprintf(stderr, "[ERR msg] Column header #%d not found!\n", matrix_column_index);
     return NULL;
 }
 
@@ -308,7 +312,8 @@ HeaderNode* dlx_initialize_matrix_header_full(int num_columns)
 {
     if (num_columns < 0)
     {
-        fprintf(stderr, "ERROR: Number of columns must be non-negative!\n");
+        fprintf(stderr, "[ERR msg] Received negative number of columns %d! (number of columns must be non-negative)\n",
+                num_columns);
         exit(EXIT_FAILURE);
     }
 
@@ -360,7 +365,8 @@ HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size)
 {
     if (sudoku_size < 0)
     {
-        fprintf(stderr, "ERROR: Sudoku size must be non-negative!\n");
+        fprintf(stderr, "[ERR msg] Received negative Sudoku size %d! (Sudoku size must be non-negative)\n",
+                sudoku_size);
         exit(EXIT_FAILURE);
     }
 
@@ -771,7 +777,7 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
         sudoku_column < 1 || sudoku_column > sudoku_size ||
         sudoku_value < 1 || sudoku_value > sudoku_size)
     {
-        fprintf(stderr, "Constraint r%dc%d#%d not set! (value out of bounds)\n", sudoku_row, sudoku_column,
+        fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (value out of bounds)\n", sudoku_row, sudoku_column,
                 sudoku_value);
         return NULL;
     }
@@ -780,7 +786,8 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
     HeaderNode* column_ptr = dlx_get_column(header_ptr, matrix_column_index);
     if (column_ptr == NULL)
     {
-        fprintf(stderr, "Constraint r%dc%d#%d not set! (column not found)\n", sudoku_row, sudoku_column, sudoku_value);
+        fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (column not found)\n", sudoku_row, sudoku_column,
+                sudoku_value);
         return NULL;
     }
 
@@ -792,12 +799,12 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
             int grid_index = (sudoku_row - 1) * sudoku_size + sudoku_column - 1;
             sudoku_grid[grid_index] = sudoku_value;
 
-            printf("Constraint r%dc%d#%d set!\n", sudoku_row, sudoku_column, sudoku_value);
+            printf("[SCS msg] Constraint set! (r%dc%d#%d)\n", sudoku_row, sudoku_column, sudoku_value);
             return node_ptr;
         }
     }
 
-    fprintf(stderr, "Constraint r%dc%d#%d not set! (node not found in column)\n", sudoku_row, sudoku_column,
+    fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (node not found in column)\n", sudoku_row, sudoku_column,
             sudoku_value);
     return NULL;
 }
@@ -870,7 +877,9 @@ bool dlx_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
 
 int main()
 {
-    // Basic test:
+    // Change the scenario of the Sudoku puzzle you would like to be solved here.
+    int test_case_index = 4;
+
     int sudoku_size = 9;
     int* sudoku_grid = (int*)calloc((int)pow(sudoku_size, 2), sizeof(int));
     HeaderNode* header_ptr = dlx_initialize_sudoku_matrix_compact(sudoku_size);
@@ -879,23 +888,68 @@ int main()
     // dlx_print_matrix_full(header_ptr);
     // printf("\n");
 
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 1, 1);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 2);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 3, 3);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 4, 4, 4);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 5, 5, 5);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 6, 6, 6);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 7, 7);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 8, 8);
-    dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 9, 9);
-
+    switch (test_case_index)
+    {
+    default:
+    case 0:
+        // Solve an empty Sudoku puzzle.
+        break;
+    case 1:
+        // Diagonal constraint
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 1, 1);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 2);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 3, 3);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 4, 4, 4);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 5, 5, 5);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 6, 6, 6);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 7, 7);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 8, 8);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 9, 9);
+        break;
+    case 2:
+        // Block constraint at (0,0)
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 1, 1);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 2, 2);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 3, 3);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 1, 4);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 5);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 3, 6);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 1, 7);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 2, 8);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 3, 9);
+        break;
+    case 3:
+        // Block constraint at (7,7)
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 7, 1);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 8, 2);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 9, 3);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 7, 4);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 8, 5);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 9, 6);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 7, 7);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 8, 8);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 9, 9);
+        break;
+    case 4:
+        // Constraints in the middle of blocks
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 1);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 5, 2);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 8, 3);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 5, 2, 4);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 5, 5, 5);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 5, 8, 6);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 2, 7);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 5, 8);
+        dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 8, 9);
+        break;
+    }
     dlx_solve(header_ptr, sudoku_grid, sudoku_size);
 
     // Uncomment for debugging purposes:
     // dlx_print_matrix_full(header_ptr);
     // printf("\n");
 
-    printf("Solution:\n");
+    printf("[SCS msg] Solution found!\n\n");
     grid_print(sudoku_grid, sudoku_size);
 
     free(sudoku_grid);
