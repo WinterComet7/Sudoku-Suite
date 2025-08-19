@@ -28,17 +28,6 @@ typedef struct SudokuGrid
     int digits[]; // Digits in the cells of the grid.
 } SudokuGrid;
 
-// Utility functions (RNG):
-void random_initialize()
-{
-    srand(time(NULL));
-}
-
-int random_interval(int min_value, int max_value)
-{
-    return ((rand() % (max_value - min_value + 1)) + min_value);
-}
-
 // Utility functions (Printing):
 void grid_print_border_horizontal(SudokuGrid* grid)
 {

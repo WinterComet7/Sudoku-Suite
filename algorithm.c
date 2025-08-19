@@ -3,13 +3,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/**
- * It is suggested to use the Sudoku sizes 4 and 9 to ensure the correct format of the printed output when testing.
- */
+#define ENABLE_DEBUG_MODE false
 
+/**
+ * Forward declarations of all included structures and functions:
+ */
 typedef struct Node Node;
 typedef struct HeaderNode HeaderNode;
 
+void grid_print_border_horizontal(int sudoku_size);
+void grid_print(int* sudoku_grid, int sudoku_size);
+void random_initialize();
+int random_interval(int min_value, int max_value);
+Node* dlx_get_node(HeaderNode* header_ptr, int matrix_row_index, int matrix_column_index);
+void dlx_link_nodes_vertical(Node* up, Node* down);
+void dlx_link_nodes_horizontal(Node* left, Node* right);
+HeaderNode* dlx_get_column_shortest(HeaderNode* header_ptr);
+HeaderNode* dlx_get_column(HeaderNode* header_ptr, int matrix_column_index);
+Node* dlx_get_column_last_node(HeaderNode* column_ptr);
+Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int sudoku_row, int sudoku_column, int sudoku_value);
+HeaderNode* dlx_initialize_matrix_header_full(int num_columns);
+HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size);
+Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value);
+HeaderNode* dlx_initialize_sudoku_matrix_from_grid(int* sudoku_grid, int sudoku_size);
+void dlx_terminate_matrix(HeaderNode* header_ptr);
+void dlx_uncover_node(Node* node_ptr);
+void dlx_cover_node(Node* node_ptr);
+void dlx_uncover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr);
+void dlx_cover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr);
+void dlx_uncover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length);
+void dlx_cover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length);
+void dlx_include_node(HeaderNode* header_ptr, Node* node_ptr, int sudoku_size);
+void dlx_exclude_node(HeaderNode* header_ptr, Node* node_ptr);
+void dlx_print_node(Node* node_ptr);
+void dlx_print_matrix_compact(HeaderNode* header_ptr);
+void dlx_print_matrix_full(HeaderNode* header_ptr);
+Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value);
+void dlx_remove_constraint(HeaderNode* header_ptr, Node* node_ptr, int* sudoku_grid, int sudoku_size);
+bool dlx_sudoku_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size);
+int dlx_sudoku_solution_quantity_quick(HeaderNode* header_ptr, int sudoku_size);
+bool dlx_sudoku_generate_unique_inner(int* sudoku_grid, int sudoku_size);
+HeaderNode* dlx_sudoku_generate_unique(int* sudoku_grid_result, int sudoku_size_result);
+
+/**
+ * Code:
+ */
 struct Node
 {
     int sudoku_row, sudoku_column, sudoku_value;
@@ -63,8 +101,265 @@ void grid_print(int* sudoku_grid, int sudoku_size)
         if (add_border_horizontal && !last_row)
             grid_print_border_horizontal(sudoku_size);
     }
+    printf("\n");
 }
 
+/**
+ *  @brief Various utility functions intended for printing values, especially when debugging.
+ */
+void dlx_print_node(Node* node_ptr)
+{
+    printf("[r%dc%d#%d]", node_ptr->sudoku_row, node_ptr->sudoku_column, node_ptr->sudoku_value);
+}
+
+void dlx_print_matrix_compact(HeaderNode* header_ptr)
+{
+    HeaderNode* current = header_ptr;
+
+    printf("[COMP output]\n");
+    for (int ix = 0; ix <= header_ptr->current_size; ix++)
+    {
+        printf("| %s%3d: %d |\n",
+               (current->num > 0) ? "C" : "H",
+               current->num,
+               current->current_size);
+
+        current = (HeaderNode*)current->node.right;
+    }
+    printf("\n");
+}
+
+void dlx_print_matrix_full(HeaderNode* header_ptr)
+{
+    HeaderNode* current = header_ptr;
+    printf("[FULL output]\n");
+    for (int ix = 0; ix <= header_ptr->current_size; ix++)
+    {
+        printf("| %s%3d: %3d |",
+               (current->num > 0) ? "C" : "H",
+               current->num,
+               current->current_size);
+
+        if (current->num > 0)
+        {
+            for (Node* node_ptr = current->node.down; node_ptr != &(current->node); node_ptr = node_ptr->down)
+            {
+                printf(" > ");
+                dlx_print_node(node_ptr);
+            }
+        }
+
+        printf("\n");
+        current = (HeaderNode*)current->node.right;
+    }
+}
+
+/**
+ *  @brief Various utility functions, intended for RNG.
+ */
+void random_initialize()
+{
+    srand(time(NULL));
+}
+
+int random_interval(int min_value, int max_value)
+{
+    return rand() % (max_value - min_value + 1) + min_value;
+}
+
+/**
+ * @brief Initializes the starting header node of a Dancing Links (DLX) matrix and creates
+ *        its associated column headers.
+ *
+ * This function dynamically allocates memory for the starting header node representing
+ * the DLX matrix and links all column header nodes in a circular doubly linked list structure.
+ * Each column header node is initialized with default values, and the total header node
+ * structure is prepared for further row additions.
+ *
+ * @param num_columns The total number of columns in the DLX matrix. Must be non-negative.
+ *
+ * @return Pointer to the header node of the initialized DLX matrix. This header node links to
+ *         all column headers through a circular doubly linked list structure.
+ *
+ * @note If the provided number of columns is negative, the program will terminate with an error.
+ * @note This function appropriately sets the values of header nodes' `total_size` and `current_size`
+ *       attributes. These attributes are set to num_columns for the starting header node
+ *       and 0 for all other header nodes.
+ */
+HeaderNode* dlx_initialize_matrix_header_full(int num_columns)
+{
+    if (num_columns < 0)
+    {
+        if (ENABLE_DEBUG_MODE)
+            fprintf(
+                stderr, "[ERR msg] Received negative number of columns %d! (number of columns must be non-negative)\n",
+                num_columns);
+        exit(EXIT_FAILURE);
+    }
+
+    HeaderNode* header_ptr = (HeaderNode*)malloc(sizeof(HeaderNode));
+    dlx_link_nodes_vertical((Node*)header_ptr, (Node*)header_ptr);
+    dlx_link_nodes_horizontal((Node*)header_ptr, (Node*)header_ptr);
+    header_ptr->node.header_node = header_ptr;
+    header_ptr->total_size = num_columns;
+    header_ptr->current_size = num_columns;
+    header_ptr->num = 0;
+
+    HeaderNode* previous_column_ptr = header_ptr;
+    for (int matrix_column_index = 1; matrix_column_index <= num_columns; matrix_column_index++)
+    {
+        HeaderNode* current_column_ptr = (HeaderNode*)malloc(sizeof(HeaderNode));
+        dlx_link_nodes_vertical((Node*)current_column_ptr, (Node*)current_column_ptr);
+        dlx_link_nodes_horizontal((Node*)previous_column_ptr, (Node*)current_column_ptr);
+        current_column_ptr->node.header_node = current_column_ptr;
+        current_column_ptr->total_size = 0;
+        current_column_ptr->current_size = 0;
+        current_column_ptr->num = matrix_column_index;
+        previous_column_ptr = current_column_ptr;
+    }
+
+    dlx_link_nodes_horizontal((Node*)previous_column_ptr, (Node*)header_ptr);
+    return header_ptr;
+}
+
+/**
+ * @brief Initializes a compact Sudoku matrix as a Dancing Links (DLX) matrix.
+ *
+ * This function creates a DLX matrix tailored to a Sudoku puzzle of the specified size
+ * and returns a pointer to its header node. The matrix is constructed to include
+ * all constraints required to solve the Sudoku puzzle (cell, row, column, and block constraints).
+ *
+ * The Sudoku size should represent the width/height of one block squared. For example,
+ * a standard 9x9 Sudoku puzzle has `sudoku_size` set to 9.
+ *
+ * @param sudoku_size The size of the Sudoku puzzle. Must be non-negative. This represents
+ *                    the dimensions of the grid (e.g., 9 for a 9x9 puzzle).
+ *
+ * @return Pointer to the header node of the initialized DLX sudoku matrix structure.
+ *         The matrix represents all potential constraints for solving the Sudoku.
+ *
+ * @note The function will terminate the program with an error message if the provided
+ *       `sudoku_size` is negative.
+ */
+HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size)
+{
+    if (sudoku_size < 0)
+    {
+        if (ENABLE_DEBUG_MODE)
+            fprintf(stderr, "[ERR msg] Received negative Sudoku size %d! (Sudoku size must be non-negative)\n",
+                    sudoku_size);
+        exit(EXIT_FAILURE);
+    }
+
+    int sudoku_cells = (int)pow(sudoku_size, 2);
+    int sudoku_block_size = (int)sqrt(sudoku_size);
+    int matrix_columns = 4 * sudoku_cells;
+    int matrix_rows = sudoku_size * sudoku_cells;
+
+    HeaderNode* header_ptr = dlx_initialize_matrix_header_full(matrix_columns);
+    for (int matrix_row = 1; matrix_row <= matrix_rows; matrix_row++)
+    {
+        int sudoku_row = (matrix_row - 1) / sudoku_cells + 1;
+        int sudoku_column = (matrix_row - 1) / sudoku_size % sudoku_size + 1;
+        int sudoku_value = (matrix_row - 1) % sudoku_size + 1;;
+        int sudoku_block = (sudoku_column - 1) / sudoku_block_size + ((sudoku_row - 1) / sudoku_block_size) *
+            sudoku_block_size;
+
+        int cell_constraint_column = (sudoku_row - 1) * sudoku_size + sudoku_column + (0 * sudoku_cells);
+        int row_constraint_column = (sudoku_row - 1) * sudoku_size + sudoku_value + (1 * sudoku_cells);
+        int column_constraint_column = (sudoku_column - 1) * sudoku_size + sudoku_value + (2 * sudoku_cells);
+        int block_constraint_column = (sudoku_block) * sudoku_size + sudoku_value + (3 * sudoku_cells);
+
+        // Uncomment for debugging purposes:
+        //printf("[R: %d, C: %d, V: %d, B: %d -> C1: %3d, C2: %3d, C3: %3d, C4: %3d]\n",
+        //       sudoku_row, sudoku_column, sudoku_value, sudoku_block,
+        //       cell_constraint_column, row_constraint_column, column_constraint_column, block_constraint_column);
+
+        HeaderNode* cell_constraint_column_ptr = dlx_get_column(header_ptr, cell_constraint_column);
+        HeaderNode* row_constraint_column_ptr = dlx_get_column(header_ptr, row_constraint_column);
+        HeaderNode* column_constraint_column_ptr = dlx_get_column(header_ptr, column_constraint_column);
+        HeaderNode* block_constraint_column_ptr = dlx_get_column(header_ptr, block_constraint_column);
+
+        Node* cell_constraint = dlx_append_node(cell_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
+                                                sudoku_value);
+        Node* row_constraint = dlx_append_node(row_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
+                                               sudoku_value);
+        Node* column_constraint = dlx_append_node(column_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
+                                                  sudoku_value);
+        Node* block_constraint = dlx_append_node(block_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
+                                                 sudoku_value);
+
+        dlx_link_nodes_horizontal(cell_constraint, row_constraint);
+        dlx_link_nodes_horizontal(row_constraint, column_constraint);
+        dlx_link_nodes_horizontal(column_constraint, block_constraint);
+        dlx_link_nodes_horizontal(block_constraint, cell_constraint);
+    }
+
+    return header_ptr;
+}
+
+// TODO: Add description.
+HeaderNode* dlx_initialize_sudoku_matrix_from_grid(int* sudoku_grid, int sudoku_size)
+{
+    if (sudoku_grid == NULL || sudoku_size < 0)
+    {
+        if (ENABLE_DEBUG_MODE)
+            fprintf(
+                stderr,
+                "[ERR msg] Received NULL or negative Sudoku grid or Sudoku size %d! (Sudoku size must be non-negative)\n",
+                sudoku_size);
+        exit(EXIT_FAILURE);
+    }
+
+    HeaderNode* result_ptr = dlx_initialize_sudoku_matrix_compact(sudoku_size);
+
+    int sudoku_cells = (int)pow(sudoku_size, 2);
+    for (int grid_index = 0; grid_index < sudoku_cells; grid_index++)
+    {
+        int sudoku_row = (grid_index / sudoku_size) + 1;
+        int sudoku_column = (grid_index % sudoku_size) + 1;
+        int sudoku_value = sudoku_grid[grid_index];
+
+        if (sudoku_value > 0)
+        {
+            dlx_set_constraint(result_ptr, sudoku_grid, sudoku_size, sudoku_row, sudoku_column,
+                               sudoku_value);
+        }
+    }
+
+    return result_ptr;
+}
+
+/**
+ * @brief Frees the memory allocated for a Dancing Links (DLX) matrix, including all nodes.
+ *
+ * This function safely deallocates the memory for all nodes within a given DLX matrix, starting from the
+ * header node and navigating through all header and child nodes. It iterates over all columns and their
+ * respective child nodes and frees the allocated memory. After completing the process, the memory used
+ * by the header node is also freed.
+ *
+ * @param header_ptr Pointer to the starting header node of the DLX matrix. If the pointer is NULL, the
+ *                   function exits without performing any operations. Otherwise, it navigates through
+ *                   all columns and their children to release allocated memory.
+ */
+void dlx_terminate_matrix(HeaderNode* header_ptr)
+{
+    if (!header_ptr) return;
+
+    for (HeaderNode* column_ptr = (HeaderNode*)header_ptr->node.right;
+         column_ptr != header_ptr;)
+    {
+        for (Node* node_ptr = column_ptr->node.down;
+             node_ptr != &(column_ptr->node);)
+        {
+            node_ptr = node_ptr->down;
+            free((Node*)node_ptr->up);
+        }
+        column_ptr = (HeaderNode*)column_ptr->node.right;
+        free((HeaderNode*)column_ptr->node.left);
+    }
+    free(header_ptr);
+}
 
 /**
  * @brief Retrieves a specific node from a Dancing Links (DLX) matrix given its row and column indices.
@@ -93,7 +388,7 @@ Node* dlx_get_node(HeaderNode* header_ptr, int matrix_row_index, int matrix_colu
 
     if (matrix_row_index < 0 || matrix_column_index < 0 || matrix_column_index > header_ptr->total_size)
     {
-        fprintf(stderr, "[ERR msg] Invalid row and/or column index!\n");
+        if (ENABLE_DEBUG_MODE) fprintf(stderr, "[ERR msg] Invalid row and/or column index!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -204,7 +499,7 @@ HeaderNode* dlx_get_column(HeaderNode* header_ptr, int matrix_column_index)
 {
     if (matrix_column_index < 1 || matrix_column_index > header_ptr->total_size)
     {
-        fprintf(stderr, "[ERR msg] Invalid column index!\n");
+        if (ENABLE_DEBUG_MODE)fprintf(stderr, "[ERR msg] Invalid column index!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -216,7 +511,7 @@ HeaderNode* dlx_get_column(HeaderNode* header_ptr, int matrix_column_index)
         current = (HeaderNode*)current->node.right;
     }
 
-    fprintf(stderr, "[ERR msg] Column header #%d not found!\n", matrix_column_index);
+    if (ENABLE_DEBUG_MODE)fprintf(stderr, "[ERR msg] Column header #%d not found!\n", matrix_column_index);
     return NULL;
 }
 
@@ -267,8 +562,7 @@ Node* dlx_get_column_last_node(HeaderNode* column_ptr)
  * @note The function only links new nodes vertically. The horizontal linking has to be done manually afterward.
  *
  */
-Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int sudoku_row, int sudoku_column,
-                      int sudoku_value)
+Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int sudoku_row, int sudoku_column, int sudoku_value)
 {
     if (column_last_node_ptr == NULL || column_last_node_ptr->header_node != column_ptr)
         column_last_node_ptr = dlx_get_column_last_node(column_ptr);
@@ -289,164 +583,8 @@ Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int su
     return new_node;
 }
 
-/**
- * @brief Initializes the starting header node of a Dancing Links (DLX) matrix and creates
- *        its associated column headers.
- *
- * This function dynamically allocates memory for the starting header node representing
- * the DLX matrix and links all column header nodes in a circular doubly linked list structure.
- * Each column header node is initialized with default values, and the total header node
- * structure is prepared for further row additions.
- *
- * @param num_columns The total number of columns in the DLX matrix. Must be non-negative.
- *
- * @return Pointer to the header node of the initialized DLX matrix. This header node links to
- *         all column headers through a circular doubly linked list structure.
- *
- * @note If the provided number of columns is negative, the program will terminate with an error.
- * @note This function appropriately sets the values of header nodes' `total_size` and `current_size`
- *       attributes. These attributes are set to num_columns for the starting header node
- *       and 0 for all other header nodes.
- */
-HeaderNode* dlx_initialize_matrix_header_full(int num_columns)
-{
-    if (num_columns < 0)
-    {
-        fprintf(stderr, "[ERR msg] Received negative number of columns %d! (number of columns must be non-negative)\n",
-                num_columns);
-        exit(EXIT_FAILURE);
-    }
-
-    HeaderNode* header_ptr = (HeaderNode*)malloc(sizeof(HeaderNode));
-    dlx_link_nodes_vertical((Node*)header_ptr, (Node*)header_ptr);
-    dlx_link_nodes_horizontal((Node*)header_ptr, (Node*)header_ptr);
-    header_ptr->node.header_node = header_ptr;
-    header_ptr->total_size = num_columns;
-    header_ptr->current_size = num_columns;
-    header_ptr->num = 0;
-
-    HeaderNode* previous_column_ptr = header_ptr;
-    for (int matrix_column_index = 1; matrix_column_index <= num_columns; matrix_column_index++)
-    {
-        HeaderNode* current_column_ptr = (HeaderNode*)malloc(sizeof(HeaderNode));
-        dlx_link_nodes_vertical((Node*)current_column_ptr, (Node*)current_column_ptr);
-        dlx_link_nodes_horizontal((Node*)previous_column_ptr, (Node*)current_column_ptr);
-        current_column_ptr->node.header_node = current_column_ptr;
-        current_column_ptr->total_size = 0;
-        current_column_ptr->current_size = 0;
-        current_column_ptr->num = matrix_column_index;
-        previous_column_ptr = current_column_ptr;
-    }
-
-    dlx_link_nodes_horizontal((Node*)previous_column_ptr, (Node*)header_ptr);
-    return header_ptr;
-}
-
-/**
- * @brief Initializes a compact Sudoku matrix as a Dancing Links (DLX) matrix.
- *
- * This function creates a DLX matrix tailored to a Sudoku puzzle of the specified size
- * and returns a pointer to its header node. The matrix is constructed to include
- * all constraints required to solve the Sudoku puzzle (cell, row, column, and block constraints).
- *
- * The Sudoku size should represent the width/height of one block squared. For example,
- * a standard 9x9 Sudoku puzzle has `sudoku_size` set to 9.
- *
- * @param sudoku_size The size of the Sudoku puzzle. Must be non-negative. This represents
- *                    the dimensions of the grid (e.g., 9 for a 9x9 puzzle).
- *
- * @return Pointer to the header node of the initialized DLX sudoku matrix structure.
- *         The matrix represents all potential constraints for solving the Sudoku.
- *
- * @note The function will terminate the program with an error message if the provided
- *       `sudoku_size` is negative.
- */
-HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size)
-{
-    if (sudoku_size < 0)
-    {
-        fprintf(stderr, "[ERR msg] Received negative Sudoku size %d! (Sudoku size must be non-negative)\n",
-                sudoku_size);
-        exit(EXIT_FAILURE);
-    }
-
-    int sudoku_cells = (int)pow(sudoku_size, 2);
-    int sudoku_block_size = (int)sqrt(sudoku_size);
-    int matrix_columns = 4 * sudoku_cells;
-    int matrix_rows = sudoku_size * sudoku_cells;
-
-    HeaderNode* header_ptr = dlx_initialize_matrix_header_full(matrix_columns);
-    for (int matrix_row = 1; matrix_row <= matrix_rows; matrix_row++)
-    {
-        int sudoku_row = (matrix_row - 1) / sudoku_cells + 1;
-        int sudoku_column = (matrix_row - 1) / sudoku_size % sudoku_size + 1;
-        int sudoku_value = (matrix_row - 1) % sudoku_size + 1;;
-        int sudoku_block = (sudoku_column - 1) / sudoku_block_size + ((sudoku_row - 1) / sudoku_block_size) *
-            sudoku_block_size;
-
-        int cell_constraint_column = (sudoku_row - 1) * sudoku_size + sudoku_column + (0 * sudoku_cells);
-        int row_constraint_column = (sudoku_row - 1) * sudoku_size + sudoku_value + (1 * sudoku_cells);
-        int column_constraint_column = (sudoku_column - 1) * sudoku_size + sudoku_value + (2 * sudoku_cells);
-        int block_constraint_column = (sudoku_block) * sudoku_size + sudoku_value + (3 * sudoku_cells);
-
-        // Uncomment for debugging purposes:
-        //printf("[R: %d, C: %d, V: %d, B: %d -> C1: %3d, C2: %3d, C3: %3d, C4: %3d]\n",
-        //       sudoku_row, sudoku_column, sudoku_value, sudoku_block,
-        //       cell_constraint_column, row_constraint_column, column_constraint_column, block_constraint_column);
-
-        HeaderNode* cell_constraint_column_ptr = dlx_get_column(header_ptr, cell_constraint_column);
-        HeaderNode* row_constraint_column_ptr = dlx_get_column(header_ptr, row_constraint_column);
-        HeaderNode* column_constraint_column_ptr = dlx_get_column(header_ptr, column_constraint_column);
-        HeaderNode* block_constraint_column_ptr = dlx_get_column(header_ptr, block_constraint_column);
-
-        Node* cell_constraint = dlx_append_node(cell_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
-                                                sudoku_value);
-        Node* row_constraint = dlx_append_node(row_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
-                                               sudoku_value);
-        Node* column_constraint = dlx_append_node(column_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
-                                                  sudoku_value);
-        Node* block_constraint = dlx_append_node(block_constraint_column_ptr, NULL, sudoku_row, sudoku_column,
-                                                 sudoku_value);
-
-        dlx_link_nodes_horizontal(cell_constraint, row_constraint);
-        dlx_link_nodes_horizontal(row_constraint, column_constraint);
-        dlx_link_nodes_horizontal(column_constraint, block_constraint);
-        dlx_link_nodes_horizontal(block_constraint, cell_constraint);
-    }
-
-    return header_ptr;
-}
-
-/**
- * @brief Frees the memory allocated for a Dancing Links (DLX) matrix, including all nodes.
- *
- * This function safely deallocates the memory for all nodes within a given DLX matrix, starting from the
- * header node and navigating through all header and child nodes. It iterates over all columns and their
- * respective child nodes and frees the allocated memory. After completing the process, the memory used
- * by the header node is also freed.
- *
- * @param header_ptr Pointer to the starting header node of the DLX matrix. If the pointer is NULL, the
- *                   function exits without performing any operations. Otherwise, it navigates through
- *                   all columns and their children to release allocated memory.
- */
-void dlx_terminate_matrix(HeaderNode* header_ptr)
-{
-    if (!header_ptr) return;
-
-    for (HeaderNode* column_ptr = (HeaderNode*)header_ptr->node.right;
-         column_ptr != header_ptr;)
-    {
-        for (Node* node_ptr = column_ptr->node.down;
-             node_ptr != &(column_ptr->node);)
-        {
-            node_ptr = node_ptr->down;
-            free((Node*)node_ptr->up);
-        }
-        column_ptr = (HeaderNode*)column_ptr->node.right;
-        free((HeaderNode*)column_ptr->node.left);
-    }
-    free(header_ptr);
-}
+// TODO: Add description.
+Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value);
 
 /**
  * @brief Uncovers a specific node in the Dancing Links (DLX) matrix.
@@ -485,6 +623,7 @@ void dlx_cover_node(Node* node_ptr)
     node_ptr->header_node->current_size--;
 }
 
+// TODO: Update description.
 /**
  * @brief Uncovers a specific column header node in the Dancing Links (DLX) matrix.
  *
@@ -494,12 +633,14 @@ void dlx_cover_node(Node* node_ptr)
  * @param column_ptr Pointer to the specific column header node that is being uncovered and restored within the
  *                   horizontal list of column headers.
  */
-void dlx_uncover_column_header(HeaderNode* column_ptr)
+void dlx_uncover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
 {
     dlx_link_nodes_horizontal(column_ptr->node.left, &(column_ptr->node));
     dlx_link_nodes_horizontal(&(column_ptr->node), column_ptr->node.right);
+    header_ptr->current_size++;
 }
 
+// TODO: Update description.
 /**
  * @brief Covers a specific column header node in the Dancing Links (DLX) matrix.
  *
@@ -509,11 +650,13 @@ void dlx_uncover_column_header(HeaderNode* column_ptr)
  * @param column_ptr Pointer to the specific column header node that is being covered and hidden within the
  *                   horizontal list of column headers.
  */
-void dlx_cover_column_header(HeaderNode* column_ptr)
+void dlx_cover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
 {
     dlx_link_nodes_horizontal(column_ptr->node.left, column_ptr->node.right);
+    header_ptr->current_size--;
 }
 
+// TODO: Update description.
 /**
  * @brief Uncovers all nodes affected within specified constraint columns in a Dancing Links (DLX) matrix.
  *
@@ -532,13 +675,12 @@ void dlx_cover_column_header(HeaderNode* column_ptr)
  * @note This function internally uses the `dlx_uncover_column_header` and `dlx_uncover_node` operations for managing
  *       column and node uncovering processes.
  */
-void dlx_uncover_affected_nodes(HeaderNode** constraint_column_ptrs,
-                                int constraint_column_ptrs_length)
+void dlx_uncover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length)
 {
     for (int index = 0; index < constraint_column_ptrs_length; index++)
     {
         HeaderNode* constraint_column_ptr = constraint_column_ptrs[index];
-        dlx_uncover_column_header(constraint_column_ptr);
+        dlx_uncover_column_header(header_ptr, constraint_column_ptr);
 
         // Traverse down the covered column.
         for (Node* column_node_ptr = constraint_column_ptr->node.down; column_node_ptr != &(constraint_column_ptr->node)
@@ -561,6 +703,7 @@ void dlx_uncover_affected_nodes(HeaderNode** constraint_column_ptrs,
     }
 }
 
+// TODO: Update description.
 /**
  * @brief Covers all nodes affected within specified constraint columns in a Dancing Links (DLX) matrix.
  *
@@ -579,13 +722,12 @@ void dlx_uncover_affected_nodes(HeaderNode** constraint_column_ptrs,
  * @note This function internally uses the `dlx_cover_column_header` and `dlx_cover_node` operations for managing
  *       column and node uncovering processes.
  */
-void dlx_cover_affected_nodes(HeaderNode** constraint_column_ptrs,
-                              int constraint_column_ptrs_length)
+void dlx_cover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length)
 {
     for (int index = 0; index < constraint_column_ptrs_length; index++)
     {
         HeaderNode* constraint_column_ptr = constraint_column_ptrs[index];
-        dlx_cover_column_header(constraint_column_ptr);
+        dlx_cover_column_header(header_ptr, constraint_column_ptr);
 
         // Traverse down the covered column.
         for (Node* column_node_ptr = constraint_column_ptr->node.down; column_node_ptr != &(constraint_column_ptr->node)
@@ -608,6 +750,7 @@ void dlx_cover_affected_nodes(HeaderNode** constraint_column_ptrs,
     }
 }
 
+// TODO: Update description.
 /**
  * @brief Includes a specific node in the DLX matrix and covers its related constraints.
  *
@@ -660,10 +803,11 @@ void dlx_include_node(HeaderNode* header_ptr, Node* node_ptr, int sudoku_size)
     constraint_column_ptrs[2] = column_constraint_column_ptr;
     constraint_column_ptrs[3] = block_constraint_column_ptr;
 
-    dlx_cover_affected_nodes(constraint_column_ptrs, constraint_column_ptrs_length);
+    dlx_cover_affected_nodes(header_ptr, constraint_column_ptrs, constraint_column_ptrs_length);
     free(constraint_column_ptrs);
 }
 
+// TODO: Update description.
 /**
  * @brief Excludes a node and its associated constraints from the Dancing Links (DLX) matrix.
  *
@@ -675,7 +819,7 @@ void dlx_include_node(HeaderNode* header_ptr, Node* node_ptr, int sudoku_size)
  * @param node_ptr Pointer to the node in the DLX matrix to exclude. This node represents a specific solution
  *                 element, and its exclusion is achieved by handling its associated constraints.
  */
-void dlx_exclude_node(Node* node_ptr)
+void dlx_exclude_node(HeaderNode* header_ptr, Node* node_ptr)
 {
     int constraint_column_ptrs_length = 4;
 
@@ -690,60 +834,9 @@ void dlx_exclude_node(Node* node_ptr)
     constraint_column_ptrs[2] = constraint_column_ptr_3;
     constraint_column_ptrs[3] = constraint_column_ptr_4;
 
-    dlx_uncover_affected_nodes(constraint_column_ptrs, constraint_column_ptrs_length);
+    dlx_uncover_affected_nodes(header_ptr, constraint_column_ptrs, constraint_column_ptrs_length);
     free(constraint_column_ptrs);
 }
-
-/**
- *  @brief Various utility functions, intended for printing values.
- */
-void dlx_print_node(Node* node_ptr)
-{
-    printf("[r%dc%d#%d]", node_ptr->sudoku_row, node_ptr->sudoku_column, node_ptr->sudoku_value);
-}
-
-void dlx_print_matrix_compact(HeaderNode* header_ptr)
-{
-    HeaderNode* current = header_ptr;
-
-    printf("[COMP output]\n");
-    for (int ix = 0; ix <= header_ptr->current_size; ix++)
-    {
-        printf("| %s%3d: %d |\n",
-               (current->num > 0) ? "C" : "H",
-               current->num,
-               current->current_size);
-
-        current = (HeaderNode*)current->node.right;
-    }
-    printf("\n");
-}
-
-void dlx_print_matrix_full(HeaderNode* header_ptr)
-{
-    HeaderNode* current = header_ptr;
-    printf("[FULL output]\n");
-    for (int ix = 0; ix <= header_ptr->current_size; ix++)
-    {
-        printf("| %s%3d: %3d |",
-               (current->num > 0) ? "C" : "H",
-               current->num,
-               current->current_size);
-
-        if (current->num > 0)
-        {
-            for (Node* node_ptr = current->node.down; node_ptr != &(current->node); node_ptr = node_ptr->down)
-            {
-                printf(" > ");
-                dlx_print_node(node_ptr);
-            }
-        }
-
-        printf("\n");
-        current = (HeaderNode*)current->node.right;
-    }
-}
-
 
 /**
  * @brief Sets a constraint in the Dancing Links (DLX) matrix for a given Sudoku grid cell and value.
@@ -770,15 +863,16 @@ void dlx_print_matrix_full(HeaderNode* header_ptr)
  * @note Exits with a printed error message if the specified row, column, or value is out of bounds,
  *       or if a column or node corresponding to the constraint is not found.
  */
-Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column,
-                         int sudoku_value)
+Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value)
 {
     if (sudoku_row < 1 || sudoku_row > sudoku_size ||
         sudoku_column < 1 || sudoku_column > sudoku_size ||
         sudoku_value < 1 || sudoku_value > sudoku_size)
     {
-        fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (value out of bounds)\n", sudoku_row, sudoku_column,
-                sudoku_value);
+        if (ENABLE_DEBUG_MODE)
+            fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (value out of bounds)\n", sudoku_row,
+                    sudoku_column,
+                    sudoku_value);
         return NULL;
     }
 
@@ -786,8 +880,11 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
     HeaderNode* column_ptr = dlx_get_column(header_ptr, matrix_column_index);
     if (column_ptr == NULL)
     {
-        fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (column not found)\n", sudoku_row, sudoku_column,
-                sudoku_value);
+        if (ENABLE_DEBUG_MODE)
+            if (ENABLE_DEBUG_MODE)
+                fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (column not found)\n", sudoku_row,
+                        sudoku_column,
+                        sudoku_value);
         return NULL;
     }
 
@@ -799,16 +896,37 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
             int grid_index = (sudoku_row - 1) * sudoku_size + sudoku_column - 1;
             sudoku_grid[grid_index] = sudoku_value;
 
-            printf("[SCS msg] Constraint set! (r%dc%d#%d)\n", sudoku_row, sudoku_column, sudoku_value);
+            if (ENABLE_DEBUG_MODE)
+                printf("[SCS msg] Constraint set! (r%dc%d#%d)\n", sudoku_row, sudoku_column,
+                       sudoku_value);
             return node_ptr;
         }
     }
 
-    fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (node not found in column)\n", sudoku_row, sudoku_column,
-            sudoku_value);
+    if (ENABLE_DEBUG_MODE)
+        fprintf(stderr, "[ERR msg] Constraint r%dc%d#%d not set! (node not found in column)\n", sudoku_row,
+                sudoku_column,
+                sudoku_value);
     return NULL;
 }
 
+// TODO: Add description.
+void dlx_remove_constraint(HeaderNode* header_ptr, Node* node_ptr, int* sudoku_grid, int sudoku_size)
+{
+    dlx_exclude_node(header_ptr, node_ptr);
+
+    int sudoku_row = node_ptr->sudoku_row;
+    int sudoku_column = node_ptr->sudoku_column;
+    int sudoku_value = node_ptr->sudoku_value;
+    int grid_index = (sudoku_row - 1) * sudoku_size + sudoku_column - 1;
+    sudoku_grid[grid_index] = 0;
+
+    if (ENABLE_DEBUG_MODE)
+        printf("[SCS msg] Constraint removed! (r%dc%d#%d)\n", sudoku_row, sudoku_column,
+               sudoku_value);
+}
+
+// TODO: Update description.
 /**
  * @brief Solves a Sudoku puzzle encoded in a Dancing Links (DLX) matrix using the exact cover algorithm.
  *
@@ -833,12 +951,12 @@ Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_si
  * @note If the matrix is empty or a column with no valid rows is encountered, the function
  *       backtracks or determines the solution status accordingly.
  */
-bool dlx_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
+bool dlx_sudoku_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
 {
     HeaderNode* selected_column_ptr = dlx_get_column_shortest(header_ptr);
     if (header_ptr->current_size == 0 || selected_column_ptr == NULL)
     {
-        // TODO: implement proper result handling.
+        if (ENABLE_DEBUG_MODE)printf("[SCS msg] Solution found!\n");
         return true;
     }
 
@@ -857,7 +975,7 @@ bool dlx_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
         // printf("\n\n");
 
         dlx_include_node(header_ptr, selected_node_ptr, sudoku_size);
-        if (dlx_solve(header_ptr, sudoku_grid, sudoku_size))
+        if (dlx_sudoku_solve(header_ptr, sudoku_grid, sudoku_size))
         {
             int selected_node_row_index = selected_node_ptr->sudoku_row - 1;
             int selected_node_column_index = selected_node_ptr->sudoku_column - 1;
@@ -868,18 +986,109 @@ bool dlx_solve(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size)
 
             return true;
         }
-        dlx_exclude_node(selected_node_ptr);
+        dlx_exclude_node(header_ptr, selected_node_ptr);
     }
 
     return false;
+}
+
+// TODO: Add description.
+int dlx_sudoku_solution_quantity_quick(HeaderNode* header_ptr, int sudoku_size)
+{
+    HeaderNode* selected_column_ptr = dlx_get_column_shortest(header_ptr);
+    if (header_ptr->current_size == 0 || selected_column_ptr == NULL)
+    {
+        if (ENABLE_DEBUG_MODE)printf("[SCS msg] Unique solution found!\n");
+        return 1;
+    }
+
+    if (selected_column_ptr->current_size < 1) return 0;
+
+    // Uncomment for debugging purposes:
+    // dlx_print_matrix_full(header_ptr);
+
+    int result = 0;
+    for (Node* selected_node_ptr = selected_column_ptr->node.down;
+         selected_node_ptr != &(selected_column_ptr->node);
+         selected_node_ptr = selected_node_ptr->down)
+    {
+        // Uncomment for debugging purposes:
+        // printf("[PCKD: C%3d ]", selected_column_ptr->num);
+        // dlx_print_node(selected_node_ptr);
+        // printf("\n\n");
+
+        dlx_include_node(header_ptr, selected_node_ptr, sudoku_size);
+        result += dlx_sudoku_solution_quantity_quick(header_ptr, sudoku_size);
+        if (result > 1) return 2;
+
+        dlx_exclude_node(header_ptr, selected_node_ptr);
+    }
+
+    return result;
+}
+
+// TODO: Add description.
+bool dlx_sudoku_generate_unique_inner(int* sudoku_grid, int sudoku_size)
+{
+    HeaderNode* copy_header_ptr = dlx_initialize_sudoku_matrix_from_grid(sudoku_grid, sudoku_size);
+    int solution_quantity = dlx_sudoku_solution_quantity_quick(copy_header_ptr, sudoku_size);
+
+    switch (solution_quantity)
+    {
+    case 0:
+        dlx_terminate_matrix(copy_header_ptr);
+        return false;
+    case 1:
+        dlx_terminate_matrix(copy_header_ptr);
+        if (ENABLE_DEBUG_MODE)printf("[SCS msg] Unique puzzle generated!\n");
+        return true;
+    case 2:
+    default:
+
+        int sudoku_cells = (int)pow(sudoku_size, 2);
+        HeaderNode* selected_column_ptr = NULL;
+
+        while (selected_column_ptr == NULL)
+        {
+            int selected_matrix_column_index = random_interval(1, sudoku_cells);
+            selected_column_ptr = dlx_get_column(copy_header_ptr, selected_matrix_column_index);
+        }
+
+        int selected_matrix_row_index = random_interval(1, selected_column_ptr->current_size);
+        Node* selected_node_ptr = selected_column_ptr->node.down;
+        for (int ix = 1; ix < selected_matrix_row_index; ix++)
+            selected_node_ptr = selected_node_ptr->down;
+
+        int sudoku_row = selected_node_ptr->sudoku_row;
+        int sudoku_column = selected_node_ptr->sudoku_column;
+        int sudoku_value = selected_node_ptr->sudoku_value;
+        dlx_set_constraint(copy_header_ptr, sudoku_grid, sudoku_size, sudoku_row, sudoku_column, sudoku_value);
+
+        dlx_terminate_matrix(copy_header_ptr);
+        return dlx_sudoku_generate_unique_inner(sudoku_grid, sudoku_size);
+    }
+}
+
+// TODO: Add description.
+HeaderNode* dlx_sudoku_generate_unique(int* sudoku_grid_result, int sudoku_size_result)
+{
+    free(sudoku_grid_result);
+
+    int sudoku_cells = (int)pow(sudoku_size_result, 2);
+    sudoku_grid_result = (int*)calloc(sudoku_cells, sizeof(int));
+    dlx_sudoku_generate_unique_inner(sudoku_grid_result, sudoku_size_result);
+
+    HeaderNode* header_ptr = dlx_initialize_sudoku_matrix_from_grid(sudoku_grid_result, sudoku_size_result);
+    return header_ptr;
 }
 
 
 int main()
 {
     // Change the scenario of the Sudoku puzzle you would like to be solved here.
-    int test_case_index = 4;
+    int test_case_index = 5;
 
+    random_initialize();
     int sudoku_size = 9;
     int* sudoku_grid = (int*)calloc((int)pow(sudoku_size, 2), sizeof(int));
     HeaderNode* header_ptr = dlx_initialize_sudoku_matrix_compact(sudoku_size);
@@ -895,7 +1104,7 @@ int main()
         // Solve an empty Sudoku puzzle.
         break;
     case 1:
-        // Diagonal constraint
+        // Diagonal constraint.
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 1, 1);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 2);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 3, 3);
@@ -907,7 +1116,7 @@ int main()
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 9, 9);
         break;
     case 2:
-        // Block constraint at (0,0)
+        // Block constraint at (0,0).
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 1, 1);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 2, 2);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 1, 3, 3);
@@ -919,7 +1128,7 @@ int main()
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 3, 3, 9);
         break;
     case 3:
-        // Block constraint at (7,7)
+        // Block constraint at (7,7).
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 7, 1);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 8, 2);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 7, 9, 3);
@@ -931,7 +1140,7 @@ int main()
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 9, 9, 9);
         break;
     case 4:
-        // Constraints in the middle of blocks
+        // Constraints in the middle of blocks.
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 2, 1);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 5, 2);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 2, 8, 3);
@@ -942,16 +1151,24 @@ int main()
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 5, 8);
         dlx_set_constraint(header_ptr, sudoku_grid, sudoku_size, 8, 8, 9);
         break;
+    case 5:
+        // Randomly generated Sudoku puzzle with an unique solution.
+        dlx_sudoku_generate_unique_inner(sudoku_grid, sudoku_size);
+        dlx_terminate_matrix(header_ptr);
+        header_ptr = dlx_initialize_sudoku_matrix_from_grid(sudoku_grid, sudoku_size);
+        grid_print(sudoku_grid, sudoku_size);
+        break;
     }
-    dlx_solve(header_ptr, sudoku_grid, sudoku_size);
+    dlx_sudoku_solve(header_ptr, sudoku_grid, sudoku_size);
 
     // Uncomment for debugging purposes:
     // dlx_print_matrix_full(header_ptr);
     // printf("\n");
 
-    printf("[SCS msg] Solution found!\n\n");
     grid_print(sudoku_grid, sudoku_size);
+    printf("[DTA msg] Number of solutions: %d\n", dlx_sudoku_solution_quantity_quick(header_ptr, sudoku_size));
 
+    dlx_print_matrix_full(header_ptr);
     free(sudoku_grid);
     dlx_terminate_matrix(header_ptr);
     return 0;
