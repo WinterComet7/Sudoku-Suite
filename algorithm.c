@@ -586,6 +586,11 @@ Node* dlx_append_node(HeaderNode* column_ptr, Node* column_last_node_ptr, int su
 // TODO: Add description.
 Node* dlx_set_constraint(HeaderNode* header_ptr, int* sudoku_grid, int sudoku_size, int sudoku_row, int sudoku_column, int sudoku_value);
 
+bool dlx_node_covered(Node* node_ptr)
+{
+    return !(node_ptr->up->down == node_ptr && node_ptr->down->up == node_ptr);
+}
+
 /**
  * @brief Uncovers a specific node in the Dancing Links (DLX) matrix.
  *
@@ -690,14 +695,20 @@ void dlx_uncover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_
             for (Node* row_node_ptr = column_node_ptr->right; row_node_ptr != column_node_ptr; row_node_ptr =
                  row_node_ptr->right)
             {
-                // Check if the neighboring node is in any of the columns being covered.
+                bool safe_to_uncover = true;
+
+                // Check if the neighboring node is in any of the columns being covered or is already uncovered.
                 for (int check_index = 0; check_index < constraint_column_ptrs_length; check_index++)
                 {
-                    if (row_node_ptr->header_node == constraint_column_ptrs[check_index]) break;
+                    if (row_node_ptr->header_node == constraint_column_ptrs[check_index] || !dlx_node_covered(row_node_ptr))
+                    {
+                        safe_to_uncover = false;
+                        break;
+                    }
                 }
 
                 // If the neighboring node is not in any of the columns being covered, cover it.
-                dlx_uncover_node(row_node_ptr);
+                if (safe_to_uncover) dlx_uncover_node(row_node_ptr);
             }
         }
     }
@@ -737,14 +748,20 @@ void dlx_cover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_co
             for (Node* row_node_ptr = column_node_ptr->right; row_node_ptr != column_node_ptr; row_node_ptr =
                  row_node_ptr->right)
             {
-                // Check if the neighboring node is in any of the columns being covered.
+                bool safe_to_cover = true;
+
+                // Check if the neighboring node is in any of the columns being covered or is already covered.
                 for (int check_index = 0; check_index < constraint_column_ptrs_length; check_index++)
                 {
-                    if (row_node_ptr->header_node == constraint_column_ptrs[check_index]) break;
+                    if (row_node_ptr->header_node == constraint_column_ptrs[check_index] || dlx_node_covered(row_node_ptr))
+                    {
+                        safe_to_cover = false;
+                        break;
+                    }
                 }
 
                 // If the neighboring node is not in any of the columns being covered, cover it.
-                dlx_cover_node(row_node_ptr);
+                if (safe_to_cover) dlx_cover_node(row_node_ptr);
             }
         }
     }
@@ -1089,7 +1106,7 @@ int main()
     int test_case_index = 5;
 
     random_initialize();
-    int sudoku_size = 9;
+    int sudoku_size = 4;
     int* sudoku_grid = (int*)calloc((int)pow(sudoku_size, 2), sizeof(int));
     HeaderNode* header_ptr = dlx_initialize_sudoku_matrix_compact(sudoku_size);
 
