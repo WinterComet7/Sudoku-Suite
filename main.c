@@ -4,20 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-#define GRID_SIZE 9
-
-/*
-
-    +-----------------------------------------+
-    | Note: Works only with 9x9 Sudoku grids! |
-    +-----------------------------------------+
-
-    +-------------------------------------------------------------------------------+
-    | Note: Upper limit: 36x36 Sudoku grid (max capacity of unsigned int in Matrix) |
-    +-------------------------------------------------------------------------------+
-
-*/
+#include "algorithm.h"
 
 typedef struct SudokuGrid
 {
@@ -25,16 +12,18 @@ typedef struct SudokuGrid
     int box_size; // Size of one box in the Sudoku grid, measured in the number of horizontal cells.
 
     int digits_len; // Length of the <digits> array. Is equal to 'pow(grid_size, 2)'.
-    int digits[]; // Digits in the cells of the grid.
+    int* digits_unsolved; // Digits of the initial grid.
+    int* digits_solved; // Digits of the solved grid.
 } SudokuGrid;
 
 // Utility functions (Printing):
-void grid_print_border_horizontal(SudokuGrid* grid)
+void sudoku_print_border_horizontal(int sudoku_size)
 {
-    for (int ix = 0; ix < grid->grid_size; ix++)
+    int box_size = (int)sqrt(sudoku_size);
+    for (int ix = 0; ix < sudoku_size; ix++)
     {
-        bool add_border_vertical = ((ix + 1) % grid->box_size == 0);
-        bool end_row = ((ix + 1) % grid->grid_size == 0);
+        bool add_border_vertical = ((ix + 1) % box_size == 0);
+        bool end_row = ((ix + 1) % sudoku_size == 0);
         printf("-%s", (end_row) ? "" : "-");
 
         if (add_border_vertical && !end_row)
@@ -44,84 +33,109 @@ void grid_print_border_horizontal(SudokuGrid* grid)
     }
 }
 
-void grid_print(SudokuGrid* grid)
+void sudoku_print(int* sudoku_grid, int sudoku_size)
 {
-    for (int ix = 0; ix < grid->digits_len; ix++)
-    {
-        bool add_border_vertical = ((ix + 1) % grid->box_size == 0);
-        bool add_border_horizontal = ((ix + 1) % (grid->grid_size * grid->box_size) == 0);
-        bool end_row = ((ix + 1) % grid->grid_size == 0);
-        bool last_row = end_row && (ix == grid->digits_len - 1);
+    int box_size = (int)sqrt(sudoku_size);
+    int digits_len = (int)pow(sudoku_size, 2);
+    int filled_cells = 0;
 
-        printf("%d%s", grid->digits[ix], (end_row) ? "" : " ");
+    for (int ix = 0; ix < digits_len; ix++)
+    {
+        bool add_border_vertical = ((ix + 1) % box_size == 0);
+        bool add_border_horizontal = ((ix + 1) % (sudoku_size * box_size) == 0);
+        bool end_row = ((ix + 1) % sudoku_size == 0);
+        bool last_row = (ix == digits_len - 1);
+
+        printf("%d%s", sudoku_grid[ix], (end_row) ? "" : " ");
+        if (sudoku_grid[ix] > 0) filled_cells++;
 
         if (add_border_vertical && !end_row)
             printf("| ");
         if (end_row)
             printf("\n");
         if (add_border_horizontal && !last_row)
-            grid_print_border_horizontal(grid);
+            sudoku_print_border_horizontal(sudoku_size);
     }
+    printf("[Filled cells: %d]\n\n", filled_cells);
 }
 
 // Functions for grid creation/deletion:
-SudokuGrid* grid_create(int grid_size)
+SudokuGrid* sudoku_initialize_empty(int sudoku_size)
 {
-    int digits_len = (int)pow(grid_size, 2);
+    int digits_len = (int)pow(sudoku_size, 2);
 
     SudokuGrid* sudoku = (SudokuGrid*)malloc(sizeof(SudokuGrid) + digits_len * sizeof(int));
-    sudoku->grid_size = grid_size;
-    sudoku->box_size = (int)sqrt(grid_size);
+    sudoku->grid_size = sudoku_size;
+    sudoku->box_size = (int)sqrt(sudoku_size);
 
     sudoku->digits_len = digits_len;
-    memset(sudoku->digits, 0, digits_len * sizeof(int));
+    sudoku->digits_unsolved = (int*)calloc(digits_len, sizeof(int));
+    sudoku->digits_solved = (int*)calloc(digits_len, sizeof(int));
 
     return sudoku;
 }
 
-SudokuGrid* grid_copy(SudokuGrid* grid)
+SudokuGrid* sudoku_initialize_complete(int sudoku_size, enum DIFFICULTY additional_constraints)
 {
-    SudokuGrid* copy = grid_create(grid->grid_size);
+    int digits_len = (int)pow(sudoku_size, 2);
 
-    for (int ix = 0; ix < grid->digits_len; ix++)
-        copy->digits[ix] = grid->digits[ix];
+    SudokuGrid* sudoku = (SudokuGrid*)malloc(sizeof(SudokuGrid) + digits_len * sizeof(int));
+    sudoku->grid_size = sudoku_size;
+    sudoku->box_size = (int)sqrt(sudoku_size);
+
+    sudoku->digits_len = digits_len;
+    sudoku->digits_unsolved = dlx_sudoku_generate_unique_unsolved(sudoku_size, additional_constraints);
+    sudoku->digits_solved = dlx_sudoku_solve(sudoku->digits_unsolved, sudoku_size);
+
+    return sudoku;
+}
+
+SudokuGrid* sudoku_copy(SudokuGrid* sudoku_grid)
+{
+    SudokuGrid* copy = sudoku_initialize_empty(sudoku_grid->grid_size);
+
+    for (int ix = 0; ix < sudoku_grid->digits_len; ix++)
+    {
+        copy->digits_unsolved[ix] = sudoku_grid->digits_unsolved[ix];
+        copy->digits_solved[ix] = sudoku_grid->digits_solved[ix];
+    }
 
     return copy;
 }
 
-void grid_delete(SudokuGrid* grid)
+void sudoku_terminate(SudokuGrid* sudoku_grid)
 {
-    free(grid);
+    free(sudoku_grid->digits_unsolved);
+    free(sudoku_grid->digits_solved);
+    free(sudoku_grid);
 }
 
-// Functions for setting a value in a grid (Unchecked):
-void grid_set_value(SudokuGrid* grid, int row_ix, int col_ix, int value)
+void sudoku_set_constraint(SudokuGrid* sudoku_grid, int sudoku_row, int sudoku_column, int sudoku_value)
 {
-    if ((row_ix >= grid->grid_size) || (row_ix < 0) ||
-        (col_ix >= grid->grid_size) || (col_ix < 0) ||
-        (value > grid->grid_size) || (value < 0))
+    int sudoku_size = sudoku_grid->grid_size;
+    if (sudoku_row < 1 || sudoku_row > sudoku_size ||
+        sudoku_column < 1 || sudoku_column > sudoku_size ||
+        sudoku_value < 1 || sudoku_value > sudoku_size)
     {
         fprintf(stderr, "ERROR: Invalid coordinates or value!\n");
         exit(EXIT_FAILURE);
     }
 
-    int index = row_ix * grid->grid_size + col_ix;
-    grid->digits[index] = value;
+    int grid_index = (sudoku_row - 1) * sudoku_size + sudoku_column - 1;
+    sudoku_grid->digits_unsolved[grid_index] = sudoku_value;
 }
 
 int main()
 {
-    random_initialize();
+    // Change the parameters of the executed test here:
+    int sudoku_size = 9;
+    DIFFICULTY difficulty = EXTREME;
 
-    int grid_size = GRID_SIZE;
-    SudokuGrid* test = grid_create(grid_size);
-    grid_set_value(test, 0, 0, 1);
-    grid_set_value(test, 0, 1, 2);
-    grid_set_value(test, 0, 2, 3);
-    grid_set_value(test, 0, 2, 4);
+    // Changing the code below this comment will alter the execution of the algorithm. It is advised to have a brief understanding of the functions used before proceeding.
+    SudokuGrid* sudoku = sudoku_initialize_complete(sudoku_size, difficulty);
+    sudoku_print(sudoku->digits_unsolved, sudoku_size);
+    sudoku_print(sudoku->digits_solved, sudoku_size);
 
-    grid_print(test);
-
-    grid_delete(test);
+    sudoku_terminate(sudoku);
     return 0;
 }
