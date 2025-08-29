@@ -8,9 +8,16 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK4 REQUIRED IMPORTED_TARGET gtk4)
 
 # Source files:
-# Format: add_executable(<config_name> <file.c> <header_file.h>)
-add_executable(GUI gui.c)
-add_executable(Main main.c algorithm.c algorithm.h)
+# Format: add_executable(<executable_name> <name.c> <name.h>)
+add_executable(GUI
+        gui.c)
+
+add_executable(Main
+        sudoku_main.c
+        sudoku_algorithm.c
+        sudoku_main.h
+        sudoku_algorithm.h)
+target_compile_definitions(Main PRIVATE MAIN_ACTIVE=true)
 
 # GTK library dependencies:
 # Format: target_link_libraries(<config_name> PRIVATE PkgConfig::GTK4)
