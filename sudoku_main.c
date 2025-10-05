@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include "sudoku_algorithm.h"
 #include "sudoku_main.h"
 

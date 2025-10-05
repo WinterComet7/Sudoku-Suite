@@ -1,0 +1,89 @@
+/* Design tokens (CSS custom properties) */
+:root {
+    /* Colors */
+    --sudoku-bg-board: #ffffff;
+    --sudoku-bg-cell-focus: #e8f4ff;
+    --sudoku-border-outer: #2f2f2f;
+    --sudoku-border-thick: #2f2f2f;
+    --sudoku-border-thin: #cfcfcf;
+    --sudoku-border-focus: #2a6cff;
+    --sudoku-shadow-color: rgba(0, 0, 0, 0.08);
+
+    /* Spacing */
+    --sudoku-padding-board: 6px;
+    --sudoku-border-radius: 6px;
+
+    /* Border widths */
+    --sudoku-border-width-outer: 3px;
+    --sudoku-border-width-thick: 3px;
+    --sudoku-border-width-thin: 1px;
+
+    /* Cell sizing */
+    --sudoku-cell-min-size: 48px;
+    --sudoku-cell-font-size: 22px;
+    --sudoku-cell-font-weight: 600;
+}
+
+/* Board (outer unified box) */
+.sudoku-grid {
+    background-color: var(--sudoku-bg-board);
+    border-radius: var(--sudoku-border-radius);
+    border: var(--sudoku-border-width-outer) solid var(--sudoku-border-outer);
+    padding: var(--sudoku-padding-board);
+    box-shadow: 0 2px 8px var(--sudoku-shadow-color);
+}
+
+/* Each entry becomes visually transparent; we draw the grid lines ourselves */
+entry.cell {
+    background-color: transparent;
+    border: none;
+    /* default thin dividers (right & bottom) */
+    border-right: var(--sudoku-border-width-thin) solid var(--sudoku-border-thin);
+    border-bottom: var(--sudoku-border-width-thin) solid var(--sudoku-border-thin);
+    padding: 0;
+    font-weight: var(--sudoku-cell-font-weight);
+    font-size: var(--sudoku-cell-font-size);
+    min-width: var(--sudoku-cell-min-size);
+    min-height: var(--sudoku-cell-min-size);
+}
+
+/* thicker lines at 3x3 group boundaries */
+entry.cell.thick-right {
+    border-right: var(--sudoku-border-width-thick) solid var(--sudoku-border-thick);
+}
+
+entry.cell.thick-bottom {
+    border-bottom: var(--sudoku-border-width-thick) solid var(--sudoku-border-thick);
+}
+
+/* Focused cell — subtle highlight */
+entry.cell:focus {
+    background-color: var(--sudoku-bg-cell-focus);
+    outline: none;
+}
+
+/* Maintain border color on focus for cells without thick borders */
+entry.cell:focus:not(.thick-right):not(.thick-bottom) {
+    border-color: var(--sudoku-border-focus);
+}
+
+/* Maintain appropriate border colors on focus for cells with thick borders */
+entry.cell:focus.thick-right {
+    border-right-color: var(--sudoku-border-focus);
+    border-bottom-color: var(--sudoku-border-focus);
+}
+
+entry.cell:focus.thick-bottom {
+    border-bottom-color: var(--sudoku-border-focus);
+    border-right-color: var(--sudoku-border-focus);
+}
+
+entry.cell:focus.thick-right.thick-bottom {
+    border-right-color: var(--sudoku-border-focus);
+    border-bottom-color: var(--sudoku-border-focus);
+}
+
+/* Remove any default focus ring the theme might try to draw */
+entry:focus {
+    box-shadow: none;
+}

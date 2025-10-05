@@ -19,6 +19,10 @@ add_executable(Main
         sudoku_algorithm.h)
 target_compile_definitions(Main PRIVATE MAIN_ACTIVE=true)
 
-# GTK library dependencies:
-# Format: target_link_libraries(<config_name> PRIVATE PkgConfig::GTK4)
-target_link_libraries(GUI PRIVATE PkgConfig::GTK4)
+# Compile & include flags from pkg-config
+target_compile_options(GUI PRIVATE ${GTK4_CFLAGS_OTHER})
+target_include_directories(GUI PRIVATE ${GTK4_INCLUDE_DIRS})
+target_link_libraries(GUI PRIVATE ${GTK4_LIBRARIES})
+
+# Copy style.css into the build directory so the binary can load it by relative path
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gui.css ${CMAKE_CURRENT_BINARY_DIR}/gui.css COPYONLY)
