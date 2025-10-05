@@ -8,9 +8,9 @@
 #define GRID_BLOCK_SIZE 3
 #define OUTER_MARGIN 20
 #define CELL_SIZE 50
-#define DIFFICULTY EXTREME
 
 static SudokuGrid* current_puzzle = NULL;
+static enum DIFFICULTY current_difficulty = EASY;
 
 static void calculate_new_position(guint keyval, int current_col, int current_row, int* new_col, int* new_row)
 {
@@ -202,7 +202,7 @@ static void on_generate_board_clicked(GtkButton* button, gpointer user_data)
     }
 
     // Generate new puzzle
-    current_puzzle = dlx_sudoku_generate_unique_pair(GRID_SIZE, DIFFICULTY);
+    current_puzzle = dlx_sudoku_generate_unique_pair(GRID_SIZE, current_difficulty);
 
     // Populate the grid with the unsolved puzzle
     for (int row_index = 0; row_index < GRID_SIZE; row_index++)
@@ -279,8 +279,53 @@ static void on_solve_board_clicked(GtkButton* button, gpointer user_data)
 {
     GtkWidget* grid = GTK_WIDGET(user_data);
 
-    if (!current_puzzle)
+    // Collect the current state of the board
+    int* current_board = (int*)calloc(GRID_SIZE * GRID_SIZE, sizeof(int));
+
+    for (int row_index = 0; row_index < GRID_SIZE; row_index++)
+    {
+        for (int column_index = 0; column_index < GRID_SIZE; column_index++)
+        {
+            GtkWidget* entry = gtk_grid_get_child_at(GTK_GRID(grid), column_index, row_index);
+            if (entry && GTK_IS_ENTRY(entry))
+            {
+                const char* current_text = gtk_editable_get_text(GTK_EDITABLE(entry));
+                int grid_index = row_index * GRID_SIZE + column_index;
+
+                if (current_text && current_text[0] >= '1' && current_text[0] <= '9')
+                {
+                    current_board[grid_index] = current_text[0] - '0';
+                }
+                else
+                {
+                    current_board[grid_index] = 0;
+                }
+            }
+        }
+    }
+
+    // Solve the current board state
+    int* solved_board = dlx_sudoku_solve(current_board, GRID_SIZE);
+
+    if (!solved_board)
+    {
+        // If solving fails, free memory and return
+        free(current_board);
+        // Optionally show an error message to user
         return;
+    }
+
+    // Update current_puzzle with the solved board
+    if (current_puzzle)
+    {
+        free(current_puzzle->sudoku_unsolved);
+        free(current_puzzle->sudoku_solved);
+        free(current_puzzle);
+    }
+
+    current_puzzle = (SudokuGrid*)malloc(sizeof(SudokuGrid));
+    current_puzzle->sudoku_unsolved = current_board;
+    current_puzzle->sudoku_solved = solved_board;
 
     // Fill in all remaining empty cells with the solved values
     for (int row_index = 0; row_index < GRID_SIZE; row_index++)
@@ -296,7 +341,7 @@ static void on_solve_board_clicked(GtkButton* button, gpointer user_data)
                 // Only fill cells that are currently empty
                 if (!current_text || current_text[0] == '\0')
                 {
-                    int solved_value = current_puzzle->sudoku_solved[grid_index];
+                    int solved_value = solved_board[grid_index];
 
                     if (solved_value > 0)
                     {
@@ -316,30 +361,136 @@ static void on_solve_board_clicked(GtkButton* button, gpointer user_data)
     }
 }
 
-static GtkWidget* create_button_box(GtkWidget* grid)
+static void on_difficulty_changed(GtkDropDown* dropdown, GParamSpec* pspec, gpointer user_data)
+{
+    guint selected = gtk_drop_down_get_selected(dropdown);
+
+    switch (selected)
+    {
+    case 0:
+        current_difficulty = EASY;
+        break;
+    case 1:
+        current_difficulty = MEDIUM;
+        break;
+    case 2:
+        current_difficulty = HARD;
+        break;
+    case 3:
+        current_difficulty = EXTREME;
+        break;
+    default:
+        current_difficulty = EASY;
+        break;
+    }
+}
+
+static void on_settings_clicked(GtkButton* button, gpointer user_data)
+{
+    GtkWidget* parent_window = GTK_WIDGET(user_data);
+
+    // Create settings dialog
+    GtkWidget* dialog = gtk_dialog_new_with_buttons(
+        "Settings",
+        GTK_WINDOW(parent_window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "_Close",
+        GTK_RESPONSE_CLOSE,
+        NULL
+    );
+
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
+
+    // Create content box
+    GtkWidget* content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget* content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_widget_set_margin_top(content_box, 20);
+    gtk_widget_set_margin_bottom(content_box, 20);
+    gtk_widget_set_margin_start(content_box, 20);
+    gtk_widget_set_margin_end(content_box, 20);
+
+    // Create label
+    GtkWidget* label = gtk_label_new("Choose the dfficulty of the next puzzle:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+
+    // Create dropdown with difficulty options
+    const char* difficulties[] = {"Easy", "Medium", "Hard", "Extreme", NULL};
+    GtkWidget* dropdown = gtk_drop_down_new_from_strings(difficulties);
+
+    // Set current selection based on current_difficulty
+    guint current_selection = 0;
+    switch (current_difficulty)
+    {
+    case EASY:
+        current_selection = 0;
+        break;
+    case MEDIUM:
+        current_selection = 1;
+        break;
+    case HARD:
+        current_selection = 2;
+        break;
+    case EXTREME:
+        current_selection = 3;
+        break;
+    }
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown), current_selection);
+
+    // Connect signal
+    g_signal_connect(dropdown, "notify::selected", G_CALLBACK(on_difficulty_changed), NULL);
+
+    // Add widgets to content box
+    gtk_box_append(GTK_BOX(content_box), label);
+    gtk_box_append(GTK_BOX(content_box), dropdown);
+
+    // Add content box to dialog
+    gtk_box_append(GTK_BOX(content_area), content_box);
+
+    // Add margin to button area
+    GtkWidget* action_area = gtk_widget_get_last_child(GTK_WIDGET(dialog));
+    if (action_area)
+    {
+        gtk_widget_set_margin_top(action_area, 10);
+        gtk_widget_set_margin_bottom(action_area, 10);
+        gtk_widget_set_margin_start(action_area, 10);
+        gtk_widget_set_margin_end(action_area, 10);
+    }
+
+    // Show dialog
+    gtk_widget_set_visible(dialog, TRUE);
+
+    // Connect close signal
+    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
+}
+
+static GtkWidget* create_button_box(GtkWidget* grid, GtkWidget* window)
 {
     GtkWidget* button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_set_margin_start(button_box, OUTER_MARGIN);
     gtk_widget_set_margin_end(button_box, OUTER_MARGIN);
     gtk_widget_set_margin_bottom(button_box, OUTER_MARGIN);
     gtk_widget_set_hexpand(button_box, TRUE);
-    gtk_box_set_homogeneous(GTK_BOX(button_box), TRUE);
+    gtk_box_set_homogeneous(GTK_BOX(button_box), FALSE);
 
     GtkWidget* button1 = gtk_button_new_with_label("Generate Board");
     GtkWidget* button2 = gtk_button_new_with_label("Solve Board");
     GtkWidget* button3 = gtk_button_new_with_label("Clear Board");
+    GtkWidget* button4 = gtk_button_new_with_label("Settings");
 
     gtk_widget_set_hexpand(button1, TRUE);
     gtk_widget_set_hexpand(button2, TRUE);
     gtk_widget_set_hexpand(button3, TRUE);
+    gtk_widget_set_hexpand(button4, FALSE);
 
     gtk_box_append(GTK_BOX(button_box), button1);
     gtk_box_append(GTK_BOX(button_box), button2);
     gtk_box_append(GTK_BOX(button_box), button3);
+    gtk_box_append(GTK_BOX(button_box), button4);
 
     g_signal_connect(button1, "clicked", G_CALLBACK(on_generate_board_clicked), grid);
     g_signal_connect(button2, "clicked", G_CALLBACK(on_solve_board_clicked), grid);
     g_signal_connect(button3, "clicked", G_CALLBACK(on_clear_board_clicked), grid);
+    g_signal_connect(button4, "clicked", G_CALLBACK(on_settings_clicked), window);
 
     return button_box;
 }
@@ -361,7 +512,7 @@ static void activate(GtkApplication* app, gpointer user_data)
 
     GtkWidget* main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     GtkWidget* grid = create_sudoku_grid();
-    GtkWidget* button_box = create_button_box(grid);
+    GtkWidget* button_box = create_button_box(grid, window);
 
     gtk_box_append(GTK_BOX(main_box), grid);
     gtk_box_append(GTK_BOX(main_box), button_box);
@@ -370,7 +521,7 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_window_present(GTK_WINDOW(window));
 }
 
-#ifndef MAIN_ACTIVE
+#ifndef DEBUG_ACTIVE
 int main(int argc, char** argv)
 {
     srand((unsigned int)time(NULL));

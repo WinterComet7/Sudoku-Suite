@@ -1085,7 +1085,7 @@ SudokuGrid* dlx_sudoku_generate_unique_pair(int sudoku_size, enum DIFFICULTY add
     return sudoku;
 }
 
-#ifndef MAIN_ACTIVE
+#ifndef DEBUG_ACTIVE
 #ifndef GUI_ACTIVE
 int main()
 {

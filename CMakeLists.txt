@@ -17,12 +17,12 @@ add_executable(GUI
         sudoku_algorithm.h)
 target_compile_definitions(GUI PRIVATE GUI_ACTIVE=true)
 
-add_executable(Main
+add_executable(Debug
         sudoku_main.c
         sudoku_algorithm.c
         sudoku_main.h
         sudoku_algorithm.h)
-target_compile_definitions(Main PRIVATE MAIN_ACTIVE=true)
+target_compile_definitions(Debug PRIVATE DEBUG_ACTIVE=true)
 
 # Compile & include flags from pkg-config
 target_compile_options(GUI PRIVATE ${GTK4_CFLAGS_OTHER})

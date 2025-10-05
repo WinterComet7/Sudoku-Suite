@@ -11,5 +11,6 @@ enum DIFFICULTY
 };
 
 SudokuGrid* dlx_sudoku_generate_unique_pair(int sudoku_size, enum DIFFICULTY additional_constraints);
+int* dlx_sudoku_solve(int* sudoku_grid_unsolved, int sudoku_size);
 
 #endif // SUDOKUSUITE_ALGORITHM_H
