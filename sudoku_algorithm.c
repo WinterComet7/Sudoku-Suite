@@ -1086,6 +1086,7 @@ SudokuGrid* dlx_sudoku_generate_unique_pair(int sudoku_size, enum DIFFICULTY add
 }
 
 #ifndef MAIN_ACTIVE
+#ifndef GUI_ACTIVE
 int main()
 {
     // Change the parameters of the executed test here:
@@ -1165,4 +1166,5 @@ int main()
     free(sudoku_grid_solved);
     return 0;
 }
+#endif
 #endif

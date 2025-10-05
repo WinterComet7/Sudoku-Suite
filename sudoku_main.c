@@ -115,6 +115,7 @@ void grid_set_value(SudokuGrid* grid, int sudoku_row, int sudoku_column, int sud
     grid->sudoku_unsolved[grid_index] = sudoku_value;
 }
 
+#ifndef GUI_ACTIVE
 int main()
 {
     srand((unsigned int)time(NULL));
@@ -129,3 +130,4 @@ int main()
     grid_delete(grid);
     return 0;
 }
+#endif

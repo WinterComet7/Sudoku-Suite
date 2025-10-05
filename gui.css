@@ -24,6 +24,26 @@
     --sudoku-cell-font-weight: 600;
 }
 
+.correct-value {
+    border-color: #4CAF50;
+    transition: border-color 0.3s ease;
+}
+
+.incorrect-value {
+    border-color: #f44336;
+    transition: border-color 0.3s ease;
+}
+
+.prefilled {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+.user-filled {
+    color: #7c7c7c;
+    font-weight: bold;
+}
+
 /* Board (outer unified box) */
 .sudoku-grid {
     background-color: var(--sudoku-bg-board);
@@ -45,6 +65,7 @@ entry.cell {
     font-size: var(--sudoku-cell-font-size);
     min-width: var(--sudoku-cell-min-size);
     min-height: var(--sudoku-cell-min-size);
+    caret-color: transparent; /* Hide the typing cursor */
 }
 
 /* thicker lines at 3x3 group boundaries */

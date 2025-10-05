@@ -13,4 +13,4 @@ typedef struct SudokuGrid
 
 SudokuGrid* grid_create(int grid_size);
 
-#endif //SUDOKUSUITE_SUDOKU_H
+#endif // SUDOKUSUITE_SUDOKU_H
