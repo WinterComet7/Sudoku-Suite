@@ -13,17 +13,17 @@ typedef struct HeaderNode HeaderNode;
 
 struct Node
 {
-    int sudoku_row, sudoku_column, sudoku_value;
-    Node *left, *right, *up, *down;
-    HeaderNode* header_node;
+    int sudoku_row, sudoku_column, sudoku_value; // The position and value of the corresponding Sudoku cell.
+    Node *left, *right, *up, *down; // This node's horizontal and vertical neighbors, which this node is currently connected to.
+    HeaderNode* header_node; // This node's corresponding header node.
 };
 
 struct HeaderNode
 {
-    Node node;
-    int total_size; // Total number of children nodes, both covered and uncovered.
-    int current_size; // Number of children nodes in the column that are currently uncovered.
-    int num;
+    Node node; // This header node's node.
+    int num; // This header node's unique number id.
+    int total_size; // The total number of children nodes, both covered and uncovered.
+    int current_size; // The total number of children nodes in the column that are currently uncovered.
 };
 
 /**
@@ -471,7 +471,25 @@ HeaderNode* dlx_initialize_sudoku_matrix_compact(int sudoku_size)
     return header_ptr;
 }
 
-// TODO: Add description.
+
+/**
+ *  @brief Initializes and constructs an exact cover matrix for a Sudoku puzzle
+ *         using the provided Sudoku grid and size.
+ *
+ *  This function takes an input grid that represents a Sudoku puzzle and converts it into
+ *  an exact cover matrix suitable for solving using the Dancing Links (DLX) algorithm.
+ *  The grid values are processed, and constraints are set for non-zero values in the grid.
+ *
+ *  @param sudoku_grid Pointer to an array representing the Sudoku grid. Each cell contains
+ *                     a value between 0 and the size of the Sudoku (inclusive).
+ *                     A value of 0 indicates an empty cell.
+ *  @param sudoku_size Integer representing the size of the Sudoku grid (e.g., 9 for a 9x9 puzzle).
+ *                     Must be non-negative.
+ *  @return Pointer to the initialized header node of the exact cover matrix.
+ *
+ *  @note If the input grid is NULL or the size is negative, the function will output an error
+ *        message (if debug mode is enabled) and terminate the program.
+ */
 HeaderNode* dlx_initialize_sudoku_matrix_from_grid(int* sudoku_grid, int sudoku_size)
 {
     if (sudoku_grid == NULL || sudoku_size < 0)
@@ -503,6 +521,18 @@ HeaderNode* dlx_initialize_sudoku_matrix_from_grid(int* sudoku_grid, int sudoku_
     return result_ptr;
 }
 
+/**
+ * @brief Checks if a node is currently covered.
+ *
+ * This function checks the current status of a given node in the DLX matrix.
+ * If the chosen node's upper neighbor's `down` pointer doesn't point to the chosen node or
+ * the chosen node's lower neighbor's `up` pointer doesn't point to the chosen node, the node
+ * is deemed as covered and the function returns `true`. Otherwise, returns false.
+ *
+ * @param node_ptr Pointer to the node, whose coverage status should be checked.
+ *
+ * @return `true` if the node is deemed covered, `false` if not.
+ */
 bool dlx_node_covered(Node* node_ptr)
 {
     return !(node_ptr->up->down == node_ptr && node_ptr->down->up == node_ptr);
@@ -545,15 +575,13 @@ void dlx_cover_node(Node* node_ptr)
     node_ptr->header_node->current_size--;
 }
 
-// TODO: Update description.
+
 /**
- * @brief Uncovers a specific column header node in the Dancing Links (DLX) matrix.
+ *  @brief Uncovers a previously covered column header node by restoring its horizontal connections
+ *         and incrementing the size of uncovered nodes in its parent header node.
  *
- * This function performs modifications on the DLX matrix where a previously covered column header node is restored
- * to the horizontal circular doubly linked list of column headers, allowing its visibility for future operations.
- *
- * @param column_ptr Pointer to the specific column header node that is being uncovered and restored within the
- *                   horizontal list of column headers.
+ *  @param header_ptr Pointer to the parent header node whose current size is incremented.
+ *  @param column_ptr Pointer to the column header node to be uncovered, whose horizontal links are restored.
  */
 void dlx_uncover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
 {
@@ -562,15 +590,12 @@ void dlx_uncover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
     header_ptr->current_size++;
 }
 
-// TODO: Update description.
 /**
- * @brief Covers a specific column header node in the Dancing Links (DLX) matrix.
+ *  @brief Covers a previously uncovered column header node by directly connecting its horizontal neighboring nodes
+ *         and incrementing the size of uncovered nodes in its parent header node.
  *
- * This function performs modifications on the DLX matrix where a previously uncovered column header node is hidden
- * from the horizontal circular doubly linked list of column headers, removing its visibility for future operations.
- *
- * @param column_ptr Pointer to the specific column header node that is being covered and hidden within the
- *                   horizontal list of column headers.
+ *  @param header_ptr Pointer to the parent header node whose current size is incremented.
+ *  @param column_ptr Pointer to the column header node to be covered, whose horizontal neighboring nodes' are directly connected.
  */
 void dlx_cover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
 {
@@ -578,24 +603,17 @@ void dlx_cover_column_header(HeaderNode* header_ptr, HeaderNode* column_ptr)
     header_ptr->current_size--;
 }
 
-// TODO: Update description.
+
 /**
- * @brief Uncovers all nodes affected within specified constraint columns in a Dancing Links (DLX) matrix.
+ * @brief Uncover all nodes in rows affected by uncovering specified column headers.
  *
- * This function restores columns and nodes that were previously covered, ensuring that all affected
- * nodes and column headers are linked back into the DLX matrix. It iterates over targeted constraint columns and
- * for each column, traverses all related rows and nodes, uncovering them as required while maintaining consistency.
+ * This method processes a set of columns that have been previously covered and uncovers all nodes
+ * in rows affected by these columns. During the process, it ensures that uncovered nodes are not
+ * simultaneously part of other columns in the given set or already uncovered.
  *
- * @param constraint_column_ptrs Array of pointers to header nodes representing constraint columns to be uncovered.
- *                               Each pointer specifies a column impacted by prior operations.
- * @param constraint_column_ptrs_length The number of constraint columns contained in the `constraint_column_ptrs` array.
- *                                       Indicates how many columns are to be processed.
- *
- * @note Each constraint column in the array is fully uncovered. This involves restoring the column header to its
- *       previous position in the horizontal circular linked list and uncovering all associated nodes within rows of that column.
- * @note If a node does not belong to any of the provided constraint columns, it is specifically uncovered to restore consistency.
- * @note This function internally uses the `dlx_uncover_column_header` and `dlx_uncover_node` operations for managing
- *       column and node uncovering processes.
+ * @param header_ptr Pointer to the main header node used in the matrix.
+ * @param constraint_column_ptrs Array of pointers to column header nodes that are to be uncovered.
+ * @param constraint_column_ptrs_length The number of column header pointers provided in the array.
  */
 void dlx_uncover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length)
 {
@@ -631,24 +649,16 @@ void dlx_uncover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_
     }
 }
 
-// TODO: Update description.
 /**
- * @brief Covers all nodes affected within specified constraint columns in a Dancing Links (DLX) matrix.
+ * @brief Cover all nodes in rows affected by covering specified column headers.
  *
- * This function hides columns and nodes that were previously uncovered, ensuring that all affected
- * nodes and column headers are "invisible" when traversing the DLX matrix. It iterates over targeted constraint columns and
- * for each column, traverses all related rows and nodes, covering them as required while maintaining consistency.
+ * This method processes a set of columns are currently uncovered and covers all nodes
+ * in rows affected by these columns. During the process, it ensures that covered nodes are not
+ * simultaneously part of other columns in the given set or already covered.
  *
- * @param constraint_column_ptrs Array of pointers to header nodes representing constraint columns to be covered.
- *                               Each pointer specifies a column impacted by prior operations.
- * @param constraint_column_ptrs_length The number of constraint columns contained in the `constraint_column_ptrs` array.
- *                                       Indicates how many columns are to be processed.
- *
- * @note Each constraint column in the array is fully covered. This involves hiding the column header from its
- *       previous position in the horizontal circular linked list and covering all associated nodes within rows of that column.
- * @note If a node does not belong to any of the provided constraint columns, it is specifically covered to restore consistency.
- * @note This function internally uses the `dlx_cover_column_header` and `dlx_cover_node` operations for managing
- *       column and node uncovering processes.
+ * @param header_ptr Pointer to the main header node used in the matrix.
+ * @param constraint_column_ptrs Array of pointers to column header nodes that are to be covered.
+ * @param constraint_column_ptrs_length The number of column header pointers provided in the array.
  */
 void dlx_cover_affected_nodes(HeaderNode* header_ptr, HeaderNode** constraint_column_ptrs, int constraint_column_ptrs_length)
 {
