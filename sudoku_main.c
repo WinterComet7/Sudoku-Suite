@@ -118,8 +118,15 @@ void grid_set_value(SudokuGrid* grid, int sudoku_row, int sudoku_column, int sud
 #ifndef GUI_ACTIVE
 int main()
 {
+    // Do not change this line to allow random puzzle generation.
     srand((unsigned int)time(NULL));
-    SudokuGrid* grid = dlx_sudoku_generate_unique_pair(9, EXTREME);
+
+    // Change the parameters of the executed test here:
+    int sudoku_size = 9;
+    enum DIFFICULTY sudoku_difficulty = EXTREME;
+
+    // The execution of the algorithm in the terminal:
+    SudokuGrid* grid = dlx_sudoku_generate_unique_pair(sudoku_size, sudoku_difficulty);
 
     grid_print(grid, false);
     printf("\n");
