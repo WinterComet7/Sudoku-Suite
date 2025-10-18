@@ -980,6 +980,7 @@ bool dlx_sudoku_solve_inner(HeaderNode* header_ptr, int* sudoku_grid, int sudoku
     return false;
 }
 
+// TODO: Add description.
 int* dlx_sudoku_solve(int* sudoku_grid_unsolved, int sudoku_size)
 {
     if (ENABLE_DEBUG_MODE) printf("\n\n[SCS msg] Solving Sudoku puzzle...\n");
@@ -1076,6 +1077,7 @@ int* dlx_sudoku_generate_unique_unsolved(int sudoku_size, enum DIFFICULTY additi
     return sudoku_grid_unsolved;
 }
 
+// TODO: Add description.
 int grid_count_filled_cells(int* sudoku_grid, int sudoku_size)
 {
     int count = 0;
@@ -1087,6 +1089,7 @@ int grid_count_filled_cells(int* sudoku_grid, int sudoku_size)
     return count;
 }
 
+// TODO: Add description.
 SudokuGrid* dlx_sudoku_generate_unique_pair(int sudoku_size, enum DIFFICULTY additional_constraints)
 {
     SudokuGrid* sudoku = grid_create(sudoku_size);
@@ -1094,6 +1097,10 @@ SudokuGrid* dlx_sudoku_generate_unique_pair(int sudoku_size, enum DIFFICULTY add
     sudoku->sudoku_solved = dlx_sudoku_solve(sudoku->sudoku_unsolved, sudoku_size);
     return sudoku;
 }
+
+/**
+ * Main function with test cases
+ */
 
 #ifndef DEBUG_ACTIVE
 #ifndef GUI_ACTIVE
