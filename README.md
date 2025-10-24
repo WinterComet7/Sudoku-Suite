@@ -10,12 +10,17 @@ as well.
 
 ## Linux
 
-1. Install dependencies **CMake, GTK4, GCC and pkg-config**
+1. Install dependencies **CMake, GTK4, GCC and pkg-config**:
+
+   ```
+   sudo apt install build-essential cmake pkg-config libgtk-4-dev
+   ```
+
 2. Clone the repository and build the project:
 
    ```
    git clone https://github.com/WinterComet7/Sudoku-Suite.git
-   cd SudokuSuite
+   cd Sudoku-Suite
    mkdir build && cd build
    cmake ..
    make 
@@ -36,14 +41,16 @@ as well.
 
    ```
    pacman -Syu
-   pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-gtk4
+   pacman -S --needed base-devel git mingw-w64-x86_64-toolchain \
+   mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config \
+   mingw-w64-x86_64-gtk4
    ```
 
 3. Clone the repository and build the project:
 
    ```
    git clone https://github.com/WinterComet7/Sudoku-Suite.git
-   cd SudokuSuite
+   cd Sudoku-Suite
    mkdir build && cd build
    cmake -G "MinGW Makefiles" ..
    mingw32-make
