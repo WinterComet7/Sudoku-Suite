@@ -6,18 +6,8 @@
 #include "sudoku_algorithm.h"
 #include "sudoku_main.h"
 
-typedef struct SudokuGrid
-{
-    int sudoku_cells; // Length of the <digits> array. Is equal to 'pow(grid_size, 2)'.
-    int sudoku_size; // Size of the Sudoku grid, measured in the number of horizontal cells.
-    int sudoku_block_size; // Size of one box in the Sudoku grid, measured in the number of horizontal cells.
-
-    int* sudoku_unsolved; // Digits in the cells of the grid.
-    int* sudoku_solved; // Digits in the cells of the grid, after solving.
-} SudokuGrid;
-
 // Utility functions (Printing):
-void grid_print_border_horizontal(SudokuGrid* grid)
+static void grid_print_border_horizontal(SudokuGrid* grid)
 {
     for (int ix = 0; ix < grid->sudoku_size; ix++)
     {
@@ -35,7 +25,7 @@ void grid_print_border_horizontal(SudokuGrid* grid)
 void grid_print(SudokuGrid* grid, bool solved)
 {
     int* chosen_board = (solved) ? grid->sudoku_solved : grid->sudoku_unsolved;
-    int filled_cells = 0;
+    int  filled_cells = 0;
 
     for (int ix = 0; ix < grid->sudoku_cells; ix++)
     {
@@ -63,18 +53,15 @@ void grid_print(SudokuGrid* grid, bool solved)
 // Functions for grid creation/deletion:
 SudokuGrid* grid_create(int grid_size)
 {
-    int sudoku_cells = (int)pow(grid_size, 2);
+    int sudoku_cells = grid_size * grid_size;
 
-    SudokuGrid* sudoku = (SudokuGrid*)malloc(sizeof(SudokuGrid) + sudoku_cells * sizeof(int));
+    SudokuGrid* sudoku = (SudokuGrid*)malloc(sizeof(SudokuGrid));
     sudoku->sudoku_block_size = (int)sqrt(grid_size);
     sudoku->sudoku_size = grid_size;
     sudoku->sudoku_cells = sudoku_cells;
 
     sudoku->sudoku_unsolved = (int*)calloc(sudoku_cells, sizeof(int));
     sudoku->sudoku_solved = (int*)calloc(sudoku_cells, sizeof(int));
-
-    memset(sudoku->sudoku_unsolved, 0, sudoku_cells * sizeof(int));
-    memset(sudoku->sudoku_solved, 0, sudoku_cells * sizeof(int));
 
     return sudoku;
 }
@@ -115,6 +102,17 @@ void grid_set_value(SudokuGrid* grid, int sudoku_row, int sudoku_column, int sud
     grid->sudoku_unsolved[grid_index] = sudoku_value;
 }
 
+int grid_count_filled_cells(int* sudoku_grid, int sudoku_size)
+{
+    int count = 0;
+    for (int ix = 0; ix < sudoku_size * sudoku_size; ix++)
+    {
+        if (sudoku_grid[ix] > 0)
+            count++;
+    }
+    return count;
+}
+
 #ifndef GUI_ACTIVE
 int main()
 {
@@ -122,7 +120,7 @@ int main()
     srand((unsigned int)time(NULL));
 
     // Change the parameters of the executed test here:
-    int sudoku_size = 9;
+    int             sudoku_size = 9;
     enum DIFFICULTY sudoku_difficulty = EXTREME;
 
     // The execution of the algorithm in the terminal:
