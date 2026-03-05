@@ -1,9 +1,8 @@
 # Sudoku-Suite
 
-An app for solving and generating Sudoku puzzles, written in C with dependencies on the GTK4 library. It is mainly
-focused on the algorithmic side of puzzle solving,
-implementing [the Dancing Links Algorithm](https://en.wikipedia.org/wiki/Dancing_links), but
-includes a simple GUI
+Sudoku Suite is an app designed for solving and generating unique Sudoku puzzles, written in C with dependencies on the GTK4 library. When making this project I mainly focused on the implementation of the required algorithms,
+implementing [the Dancing Links Algorithm](https://en.wikipedia.org/wiki/Dancing_links), although the final result
+includes an additional simple GUI
 as well.
 
 # How to use
