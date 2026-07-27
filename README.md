@@ -1,6 +1,6 @@
 # Sudoku Suite
 
-Sudoku Suite is a C application for solving Sudoku puzzles and generating 9x9 Sudoku puzzles with unique solutions. The project focuses mainly on the algorithmic implementation, especially the Dancing Links algorithm, and also includes a simple GTK 4 GUI.
+Sudoku Suite is a C project that solves Sudoku puzzles and generates new 9x9 ones with unique solutions. Most of the work is in the algorithm side, especially the Dancing Links implementation, plus a simple GTK 4 GUI on top.
 
 ## Features
 
@@ -31,23 +31,11 @@ The following commands are intended for Debian/Ubuntu-based distributions.
 2. Clone the repository and build the project:
 
    ```bash
-   git clone https://github.com/winter-comet/Sudoku-Suite.git
-   cd Sudoku-Suite
+   git clone https://github.com/winter-comet/sudoku-suite.git
+   cd sudoku-suite
    mkdir build && cd build
    cmake ..
    make
-   ```
-
-3. Run the application:
-
-   ```bash
-   ./GUI
-   ```
-
-   Or run the debug/terminal version:
-
-   ```bash
-   ./Debug
    ```
 
 ### Windows using MSYS2
@@ -66,31 +54,28 @@ The following commands are intended for Debian/Ubuntu-based distributions.
 3. Clone the repository and build the project:
 
    ```bash
-   git clone https://github.com/winter-comet/Sudoku-Suite.git
-   cd Sudoku-Suite
+   git clone https://github.com/winter-comet/sudoku-suite.git
+   cd sudoku-suite
    mkdir build && cd build
    cmake -G "MinGW Makefiles" ..
    mingw32-make
    ```
 
-4. Run the application:
+### Running it
 
-   ```bash
-   ./GUI.exe
-   ```
+From the `build` folder, run the GUI version:
 
-   Or run the debug/terminal version:
+```bash
+./GUI       # Linux
+./GUI.exe   # Windows
+```
 
-   ```bash
-   ./Debug.exe
-   ```
+Or the debug/terminal version, for testing the algorithm without the GUI:
 
-## To-do
-
-- [ ] Update the GUI
-- [ ] Add support for generating puzzles of different sizes
-- [ ] Add and update documentation
-- [ ] Add more tests
+```bash
+./Debug       # Linux
+./Debug.exe   # Windows
+```
 
 ## Resources used
 
