@@ -2,6 +2,8 @@
 
 Sudoku Suite is a C project that solves Sudoku puzzles and generates new 9x9 ones with unique solutions. Most of the work is in the algorithm side, especially the Dancing Links implementation, plus a simple GTK 4 GUI on top.
 
+![Sudoku Suite](screenshot.png)
+
 ## Features
 
 - Generate Sudoku puzzles with different difficulty levels
