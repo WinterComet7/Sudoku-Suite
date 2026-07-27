@@ -63,10 +63,9 @@ static gboolean on_key_pressed(GtkEventControllerKey* controller, guint keyval, 
 static gboolean reset_cell_style(gpointer user_data)
 {
     GtkWidget* entry = GTK_WIDGET(user_data);
-    GtkStyleContext* sc = gtk_widget_get_style_context(entry);
 
-    gtk_style_context_remove_class(sc, "correct-value");
-    gtk_style_context_remove_class(sc, "incorrect-value");
+    gtk_widget_remove_css_class(entry, "correct-value");
+    gtk_widget_remove_css_class(entry, "incorrect-value");
 
     return G_SOURCE_REMOVE;
 }
@@ -93,15 +92,13 @@ static void on_entry_changed(GtkEditable* editable, gpointer user_data)
     int grid_index = row * GRID_SIZE + col;
     int correct_value = current_puzzle->sudoku_solved[grid_index];
 
-    GtkStyleContext* sc = gtk_widget_get_style_context(entry);
-
     if (user_value >= 1 && user_value <= 9)
     {
         if (user_value == correct_value)
         {
             // Correct value - briefly show green border, then make non-editable
-            gtk_style_context_add_class(sc, "correct-value");
-            gtk_style_context_add_class(sc, "user-filled");
+            gtk_widget_add_css_class(entry, "correct-value");
+            gtk_widget_add_css_class(entry, "user-filled");
             g_timeout_add(300, reset_cell_style, entry);
 
             // Make the cell non-editable after correct entry
@@ -111,7 +108,7 @@ static void on_entry_changed(GtkEditable* editable, gpointer user_data)
         else
         {
             // Incorrect value - briefly show red border and clear the cell
-            gtk_style_context_add_class(sc, "incorrect-value");
+            gtk_widget_add_css_class(entry, "incorrect-value");
             g_timeout_add(300, reset_cell_style, entry);
             g_idle_add(clear_entry_text, editable);
         }
@@ -141,13 +138,12 @@ static GtkWidget* create_cell_entry(int row_index, int column_index)
     gtk_editable_set_position(GTK_EDITABLE(entry), 0);
     gtk_widget_set_size_request(entry, CELL_SIZE, CELL_SIZE);
 
-    GtkStyleContext* sc = gtk_widget_get_style_context(entry);
-    gtk_style_context_add_class(sc, "cell");
+    gtk_widget_add_css_class(entry, "cell");
 
     if ((column_index + 1) % GRID_BLOCK_SIZE == 0 && column_index != GRID_SIZE - 1)
-        gtk_style_context_add_class(sc, "thick-right");
+        gtk_widget_add_css_class(entry, "thick-right");
     if ((row_index + 1) % GRID_BLOCK_SIZE == 0 && row_index != GRID_SIZE - 1)
-        gtk_style_context_add_class(sc, "thick-bottom");
+        gtk_widget_add_css_class(entry, "thick-bottom");
 
     GtkEventController* key_controller = gtk_event_controller_key_new();
     g_signal_connect(key_controller, "key-pressed", G_CALLBACK(on_key_pressed), entry);
@@ -174,8 +170,7 @@ static GtkWidget* create_sudoku_grid(void)
     gtk_widget_set_hexpand(grid, TRUE);
     gtk_widget_set_vexpand(grid, TRUE);
 
-    GtkStyleContext* grid_sc = gtk_widget_get_style_context(grid);
-    gtk_style_context_add_class(grid_sc, "sudoku-grid");
+    gtk_widget_add_css_class(grid, "sudoku-grid");
 
     for (int row_index = 0; row_index < GRID_SIZE; row_index++)
     {
@@ -215,8 +210,6 @@ static void on_generate_board_clicked(GtkButton* button, gpointer user_data)
                 int grid_index = row_index * GRID_SIZE + column_index;
                 int value = current_puzzle->sudoku_unsolved[grid_index];
 
-                GtkStyleContext* sc = gtk_widget_get_style_context(entry);
-
                 if (value > 0)
                 {
                     char text[2];
@@ -226,8 +219,8 @@ static void on_generate_board_clicked(GtkButton* button, gpointer user_data)
                     gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
                     gtk_widget_set_can_focus(entry, FALSE);
 
-                    gtk_style_context_add_class(sc, "prefilled");
-                    gtk_style_context_remove_class(sc, "user-filled");
+                    gtk_widget_add_css_class(entry, "prefilled");
+                    gtk_widget_remove_css_class(entry, "user-filled");
                 }
                 else
                 {
@@ -235,8 +228,8 @@ static void on_generate_board_clicked(GtkButton* button, gpointer user_data)
                     gtk_editable_set_editable(GTK_EDITABLE(entry), TRUE);
                     gtk_widget_set_can_focus(entry, TRUE);
 
-                    gtk_style_context_remove_class(sc, "prefilled");
-                    gtk_style_context_remove_class(sc, "user-filled");
+                    gtk_widget_remove_css_class(entry, "prefilled");
+                    gtk_widget_remove_css_class(entry, "user-filled");
                 }
             }
         }
@@ -258,9 +251,8 @@ static void on_clear_board_clicked(GtkButton* button, gpointer user_data)
                 gtk_editable_set_editable(GTK_EDITABLE(entry), TRUE);
                 gtk_widget_set_can_focus(entry, TRUE);
 
-                GtkStyleContext* sc = gtk_widget_get_style_context(entry);
-                gtk_style_context_remove_class(sc, "prefilled");
-                gtk_style_context_remove_class(sc, "user-filled");
+                gtk_widget_remove_css_class(entry, "prefilled");
+                gtk_widget_remove_css_class(entry, "user-filled");
             }
         }
     }
@@ -352,8 +344,7 @@ static void on_solve_board_clicked(GtkButton* button, gpointer user_data)
                         gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
                         gtk_widget_set_can_focus(entry, FALSE);
 
-                        GtkStyleContext* sc = gtk_widget_get_style_context(entry);
-                        gtk_style_context_add_class(sc, "user-filled");
+                        gtk_widget_add_css_class(entry, "user-filled");
                     }
                 }
             }
@@ -389,20 +380,15 @@ static void on_settings_clicked(GtkButton* button, gpointer user_data)
 {
     GtkWidget* parent_window = GTK_WIDGET(user_data);
 
-    // Create settings dialog
-    GtkWidget* dialog = gtk_dialog_new_with_buttons(
-        "Settings",
-        GTK_WINDOW(parent_window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        "_Close",
-        GTK_RESPONSE_CLOSE,
-        NULL
-    );
-
+    // Create settings window (GtkDialog is deprecated as of GTK 4.10)
+    GtkWidget* dialog = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(dialog), "Settings");
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(parent_window));
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
     gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
 
     // Create content box
-    GtkWidget* content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     GtkWidget* content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_widget_set_margin_top(content_box, 20);
     gtk_widget_set_margin_bottom(content_box, 20);
@@ -439,28 +425,27 @@ static void on_settings_clicked(GtkButton* button, gpointer user_data)
     // Connect signal
     g_signal_connect(dropdown, "notify::selected", G_CALLBACK(on_difficulty_changed), NULL);
 
+    // Close button, in its own row at the bottom (previously the dialog's action area)
+    GtkWidget* action_area = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_halign(action_area, GTK_ALIGN_END);
+    gtk_widget_set_margin_top(action_area, 10);
+    gtk_widget_set_margin_bottom(action_area, 10);
+    gtk_widget_set_margin_start(action_area, 10);
+    gtk_widget_set_margin_end(action_area, 10);
+
+    GtkWidget* close_button = gtk_button_new_with_mnemonic("_Close");
+    g_signal_connect_swapped(close_button, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+    gtk_box_append(GTK_BOX(action_area), close_button);
+
     // Add widgets to content box
     gtk_box_append(GTK_BOX(content_box), label);
     gtk_box_append(GTK_BOX(content_box), dropdown);
+    gtk_box_append(GTK_BOX(content_box), action_area);
 
-    // Add content box to dialog
-    gtk_box_append(GTK_BOX(content_area), content_box);
-
-    // Add margin to button area
-    GtkWidget* action_area = gtk_widget_get_last_child(GTK_WIDGET(dialog));
-    if (action_area)
-    {
-        gtk_widget_set_margin_top(action_area, 10);
-        gtk_widget_set_margin_bottom(action_area, 10);
-        gtk_widget_set_margin_start(action_area, 10);
-        gtk_widget_set_margin_end(action_area, 10);
-    }
+    gtk_window_set_child(GTK_WINDOW(dialog), content_box);
 
     // Show dialog
     gtk_widget_set_visible(dialog, TRUE);
-
-    // Connect close signal
-    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
 }
 
 static GtkWidget* create_button_box(GtkWidget* grid, GtkWidget* window)
