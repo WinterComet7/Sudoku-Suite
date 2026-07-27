@@ -1,8 +1,11 @@
 # Sudoku Suite
 
-Sudoku Suite is a C project that solves Sudoku puzzles and generates new 9x9 ones with unique solutions. Most of the work is in the algorithm side, especially the Dancing Links implementation, plus a simple GTK 4 GUI on top.
+Sudoku Suite is a C project that solves Sudoku puzzles and generates new 9x9 ones with unique solutions. Most of the
+work is in the algorithm side, especially the Dancing Links implementation, plus a simple GTK 4 GUI on top.
 
-![Sudoku Suite](screenshot.png)
+<p align="center">
+  <img src="screenshot.png" alt="Sudoku Suite" width="400">
+</p>
 
 ## Features
 
@@ -81,7 +84,8 @@ Or the debug/terminal version, for testing the algorithm without the GUI:
 
 ## Resources used
 
-During development, I used the following resources, which I recommend for anyone interested in developing a Sudoku solver:
+During development, I used the following resources, which I recommend for anyone interested in developing a Sudoku
+solver:
 
 - [Dancing Links algorithm on Wikipedia](https://en.wikipedia.org/wiki/Dancing_links)
 - [Glossary of Sudoku on Wikipedia](https://en.wikipedia.org/wiki/Glossary_of_Sudoku)
